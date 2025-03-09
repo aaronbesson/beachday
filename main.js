@@ -1,24 +1,23 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Water } from 'three/addons/objects/Water.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { SimplexNoise } from 'three/addons/math/SimplexNoise.js';
 
 // Main scene variables
 let scene, camera, renderer, controls, fpControls;
-let terrain, water, sky, sun, directionalLight, clouds, birds;
+let terrain, water, sky, sun, directionalLight, clouds, birds, sharks;
 let clock = new THREE.Clock();
-
-// Physics variables
-let world, playerBody;
-const timeStep = 1/60;
 
 // Player settings
 let player = {
     speed: 0.5,
-    height: 3.0, // Height offset above terrain
-    lastGroundY: 0 // Last detected ground height
+    height: 1.0, // Height offset above terrain
+    lastGroundY: 0, // Last detected ground height
+    model: null, // Will store the squirrel model
+    modelOffset: {x: 0, y: -3.0, z: 0} // Offset for the model relative to camera
 };
 
 // Movement control state
@@ -37,11 +36,12 @@ let terrainGeometry;
 const TERRAIN_SIZE = 3000;
 const TERRAIN_SEGMENTS = 124;
 const TERRAIN_HEIGHT = 57;
-const WATER_LEVEL = 3;
+const WATER_LEVEL = 10;
 const SUN_HEIGHT = 400;
-const TREE_COUNT = 400;
+const TREE_COUNT = 500;
 const CLOUD_COUNT = 12;
 const BIRD_COUNT = 2;
+const SHARK_COUNT = 6; // Number of sharks to create
 
 // Initialize the scene
 function init() {
@@ -51,6 +51,14 @@ function init() {
     
     // Add fog for atmosphere
     scene.fog = new THREE.FogExp2(0x87ceeb, 0.0008);
+    
+    // Initialize underwater overlay
+    const underwaterOverlay = document.getElementById('underwater-overlay');
+    if (underwaterOverlay) {
+        underwaterOverlay.style.opacity = '0';
+    }
+    
+    // Debug marker removed - squirrel model is visible now
     
     // Create camera
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
@@ -86,6 +94,7 @@ function init() {
     createTrees();
     createClouds();
     createBirds();
+    createSharks();
     
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -108,13 +117,42 @@ function init() {
 
 // Set up player and controls
 function setupPlayer() {
-    // Create pointer lock controls (first-person)
+    // Load the squirrel model
+    const loader = new GLTFLoader();
+    console.log("Attempting to load squirrel model from ./assets/squirrel.glb");
+    
+    loader.load('./assets/squirrel.glb', (gltf) => {
+        console.log("Squirrel model loaded successfully", gltf);
+        player.model = gltf.scene;
+        
+        // Add the model to the scene
+        scene.add(player.model);
+        
+        // Scale model appropriately - adjust this value if needed
+        player.model.scale.set(3, 3, 3);
+        
+        // Set initial position - raised higher
+        player.model.position.set(0, 50, -10); // Start in front of camera
+        
+        console.log("Squirrel model added to scene at:", player.model.position);
+    }, 
+    // Progress callback
+    (xhr) => {
+        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+    }, 
+    // Error callback
+    (error) => {
+        console.error("Error loading squirrel model:", error);
+    });
+
+    // Create pointer lock controls (now for third-person)
     fpControls = new PointerLockControls(camera, document.body);
     scene.add(fpControls.getObject());
     
-    // Position the camera higher above the terrain
-    fpControls.getObject().position.set(0, 50, 0);
-    console.log("Player initialized at position:", fpControls.getObject().position);
+    // Position the camera higher and behind for third-person view
+    camera.position.set(0, 60, 30); // Higher and further behind
+    fpControls.getObject().position.set(0, 60, 30); // Match camera position
+    console.log("Camera initialized at position:", fpControls.getObject().position);
     
     // Add click event to enable pointer lock
     document.addEventListener('click', function() {
@@ -125,13 +163,13 @@ function setupPlayer() {
     // Lock/unlock events
     fpControls.addEventListener('lock', function() {
         isLocked = true;
-        console.log("Pointer lock enabled - first person active");
+        console.log("Pointer lock enabled - third person active");
         
         // Set initial height above terrain
         const camera = fpControls.getObject();
         const terrainY = getTerrainHeight(camera.position.x, camera.position.z);
         player.lastGroundY = terrainY;
-        camera.position.y = terrainY + player.height;
+        camera.position.y = terrainY + player.height + 5; // Higher for third-person
         console.log("Initial terrain height:", terrainY, "Player Y:", camera.position.y);
         
         // Hide regular controls
@@ -319,12 +357,12 @@ function createTerrain() {
         
         // Multiple noise layers for more interesting detailed terrain
         const noise1 = simplex.noise(x * 0.001, z * 0.001);
-        const noise2 = simplex.noise(x * 0.01, z * 0.01) * 0.3;
-        const noise3 = simplex.noise(x * 0.05, z * 0.05) * 0.1;
-        const noise4 = simplex.noise(x * 0.2, z * 0.2) * 0.05;
-        const noise5 = simplex.noise(x * 0.4, z * 0.4) * 0.025;
+        // const noise2 = simplex.noise(x * 0.01, z * 0.01) * 0.3;
+        // const noise3 = simplex.noise(x * 0.05, z * 0.05) * 0.1;
+        // const noise4 = simplex.noise(x * 0.2, z * 0.2) * 0.05;
+        // const noise5 = simplex.noise(x * 0.4, z * 0.4) * 0.025;
         
-        let height = (noise1 + noise2 + noise3 + noise4 + noise5) * TERRAIN_HEIGHT;
+        let height = (noise1) * 200;
         
         // Smoother transition for underwater areas
         if (height < WATER_LEVEL + 2) {
@@ -346,7 +384,7 @@ function createTerrain() {
     // Create terrain material
     const material = new THREE.MeshStandardMaterial({
         color: 0x3d9e56,
-        roughness: 0.8,
+        roughness: 2,
         metalness: 0.1,
         flatShading: false,
         vertexColors: false
@@ -431,7 +469,7 @@ function createWater() {
     );
     
     water.rotation.x = -Math.PI / 2;
-    water.position.y = WATER_LEVEL;
+    water.position.y = WATER_LEVEL + 6;
     
     scene.add(water);
 }
@@ -757,6 +795,75 @@ function createBirds() {
     scene.add(birds);
 }
 
+// Create sharks with visible fins
+function createSharks() {
+    sharks = new THREE.Group();
+    scene.add(sharks);
+    
+    console.log("Creating sharks - water level is:", WATER_LEVEL);
+    
+    function createShark(position) {
+        // Create shark fin
+        const sharkGroup = new THREE.Group();
+        
+        // Create a classic triangular shark fin - 2x larger
+        const finGeometry = new THREE.ConeGeometry(0, 3.0, 1);
+        finGeometry.rotateX(Math.PI / 2);
+        
+        // Create fin material - dark gray
+        const finMaterial = new THREE.MeshStandardMaterial({
+            color: 0x202020,
+            roughness: 0.6,
+            metalness: 0.2
+        });
+        
+        // Create fin mesh
+        const fin = new THREE.Mesh(finGeometry, finMaterial);
+        fin.castShadow = true;
+        fin.position.y = 1.0; // Adjust position to account for larger size
+        sharkGroup.add(fin);
+        
+        // Position the shark at water level
+        sharkGroup.position.copy(position);
+        
+        // Add movement data similar to birds
+        sharkGroup.userData = { 
+            id: Math.random(),
+            speed: 0.1,
+            radius: 50 + Math.random() * 200,
+            height: position.y,
+            angle: Math.random() * Math.PI * 2
+        };
+        
+        sharks.add(sharkGroup);
+        return sharkGroup;
+    }
+    
+    // Create sharks at random positions in water
+    for (let i = 0; i < SHARK_COUNT; i++) {
+        const radius = (Math.random() * 0.6 + 0.2) * TERRAIN_SIZE / 2;
+        const angle = Math.random() * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        
+        // Make sure sharks are in water - check height at position
+        const terrainY = getTerrainHeight(x, z);
+        
+        // Only place shark if area is underwater
+        if (terrainY < WATER_LEVEL - 0.5) {
+            // Position shark at water level
+            const sharkPosition = new THREE.Vector3(x, WATER_LEVEL, z);
+            createShark(sharkPosition);
+        } else {
+            // Try again if position is not underwater
+            i--;
+        }
+    }
+    
+    console.log(`Created ${sharks.children.length} sharks`);
+    return sharks;
+}
+
 // Handle window resize
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -853,7 +960,7 @@ function animate() {
             if (jumpTime < 0.6) {
                 // Parabolic jump curve
                 const jumpHeight = 15 * Math.sin(Math.PI * jumpTime / 0.6);
-                camera.position.y = player.lastGroundY + player.height + jumpHeight;
+                camera.position.y = player.lastGroundY + player.height + 5 + jumpHeight; // Added +5 for third-person
             } else {
                 isJumping = false;
             }
@@ -868,7 +975,59 @@ function animate() {
             const minHeight = Math.max(terrainY, WATER_LEVEL + 0.5);
             
             // Set player height above terrain
-            camera.position.y = minHeight + player.height;
+            camera.position.y = minHeight + player.height + 5; // Added +5 for third-person
+            
+            // Check if player is underwater and update overlay
+            const underwaterOverlay = document.getElementById('underwater-overlay');
+            // Check if player's feet are in the water (standing on terrain below water level)
+            if (terrainY < WATER_LEVEL) {
+                // Player is underwater - show overlay with transition
+                if (underwaterOverlay) underwaterOverlay.style.opacity = '0.5';
+            } else {
+                // Player is above water - hide overlay with transition
+                if (underwaterOverlay) underwaterOverlay.style.opacity = '0';
+            }
+        }
+        
+        // Update squirrel model position - place it in front of the camera
+        if (player.model) {
+            // Calculate direction vector
+            const direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            
+            // Position the model ahead of the camera
+            const modelDistance = 10; // Increased distance in front of camera
+            const modelX = camera.position.x + direction.x * modelDistance;
+            const modelZ = camera.position.z + direction.z * modelDistance;
+            
+            // Get the terrain height for the model
+            const modelTerrainY = getTerrainHeight(modelX, modelZ);
+            const modelMinHeight = Math.max(modelTerrainY, WATER_LEVEL + 0.5);
+            
+            // Set model position with added height offset
+            const modelHeightOffset = 2.5; // Use player height setting
+            player.model.position.x = modelX;
+            player.model.position.z = modelZ;
+            player.model.position.y = modelMinHeight + modelHeightOffset; // Added height offset
+            
+            // Make model face the direction of movement
+            if (prevX !== camera.position.x || prevZ !== camera.position.z) {
+                // Calculate angle based on camera movement direction
+                const angle = Math.atan2(
+                    camera.position.x - prevX,
+                    camera.position.z - prevZ
+                );
+                // Apply rotation - add Math.PI to face forward direction
+                const targetRotation = angle; // Removed Math.PI to rotate 180 degrees
+                player.model.rotation.y = targetRotation;
+            }
+            
+            // Debug output every few seconds
+            if (Math.floor(time) % 5 === 0 && Math.floor(time * 10) % 10 === 0) {
+                console.log("Camera position:", camera.position);
+                console.log("Squirrel position:", player.model.position);
+                console.log("Model visible:", player.model.visible);
+            }
         }
     } else {
         // Update orbit controls
@@ -944,6 +1103,30 @@ function animate() {
             if (bird.children[3]) {
                 bird.children[3].rotation.x = -Math.PI / 6 + Math.sin(time * data.wingSpeed * 5) * 0.1;
             }
+        });
+    }
+    
+    // Update shark movement
+    if (sharks) {
+        sharks.children.forEach(shark => {
+            const data = shark.userData;
+            
+            // Update shark position in circular pattern - EXACTLY like birds
+            data.angle += data.speed * 0.01;
+            
+            // Natural movement pattern
+            const radius = data.radius + Math.sin(data.angle * 2) * 20;
+            shark.position.x = Math.cos(data.angle) * radius;
+            shark.position.z = Math.sin(data.angle) * radius;
+            
+            // Keep at water level with slight bobbing
+            shark.position.y = WATER_LEVEL + Math.sin(data.angle * 3) * 0.2;
+            
+            // Make shark face the direction it's moving
+            shark.rotation.y = -data.angle + Math.PI / 2;
+            
+            // Add slight tilt for more natural movement
+            shark.rotation.z = Math.cos(data.angle) * 0.1;
         });
     }
     
