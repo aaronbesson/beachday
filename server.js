@@ -2,6 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
+const WebSocket = require('ws');
+const { v4: uuidv4 } = require('uuid');
 // Add dotenv to load environment variables
 require('dotenv').config();
 
@@ -10,6 +12,9 @@ const REPLICATE_API_KEY = process.env.REPLICATE_API_KEY;
 
 // Log API key presence (don't log the actual key)
 console.log(`Replicate API Key ${REPLICATE_API_KEY ? 'is' : 'is NOT'} available`);
+
+// Store connected players
+const players = {};
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -172,6 +177,7 @@ const simulateModelGenerationAPI = (data) => {
   });
 };
 
+// Create server
 const server = http.createServer(async (req, res) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
 
@@ -301,6 +307,101 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
+// Create WebSocket server
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    // Generate unique ID for this player
+    const playerId = uuidv4();
+    
+    // Initialize player
+    players[playerId] = {
+        id: playerId,
+        position: { x: 0, y: 60, z: 30 }, // Default spawn position
+        rotation: { y: 0 },
+        model: null // Will hold player customization info
+    };
+    
+    console.log(`Player ${playerId} connected`);
+    
+    // Send player their ID and current world state
+    ws.send(JSON.stringify({
+        type: 'init',
+        id: playerId,
+        players: players
+    }));
+    
+    // Broadcast new player to others
+    wss.clients.forEach((client) => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+                type: 'player-joined',
+                player: players[playerId]
+            }));
+        }
+    });
+    
+    // Handle incoming messages
+    ws.on('message', (message) => {
+        try {
+            const data = JSON.parse(message);
+            
+            switch (data.type) {
+                case 'position':
+                    // Update player position
+                    players[playerId].position = data.position;
+                    players[playerId].rotation = data.rotation;
+                    
+                    // Broadcast to other players
+                    broadcastPlayerState(playerId, ws);
+                    break;
+                    
+                case 'model-update':
+                    // Update player model
+                    players[playerId].model = data.model;
+                    
+                    // Broadcast to other players
+                    broadcastPlayerState(playerId, ws);
+                    break;
+            }
+        } catch (e) {
+            console.error("Error parsing message:", e);
+        }
+    });
+    
+    // Handle disconnection
+    ws.on('close', () => {
+        console.log(`Player ${playerId} disconnected`);
+        
+        // Remove player
+        delete players[playerId];
+        
+        // Notify others
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({
+                    type: 'player-left',
+                    id: playerId
+                }));
+            }
+        });
+    });
+});
+
+// Helper to broadcast player state
+function broadcastPlayerState(id, exclude) {
+    wss.clients.forEach((client) => {
+        if (client !== exclude && client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+                type: 'player-update',
+                player: players[id]
+            }));
+        }
+    });
+}
+
+// Start the server
 server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}/`);
+    console.log(`Server running at http://localhost:${PORT}/`);
+    console.log(`WebSocket server running on port ${PORT}`);
 }); 

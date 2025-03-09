@@ -7,9 +7,10 @@ import { ReplicateAPI } from './replicateApi.js';
 import { Lightbox } from './lightbox.js';
 
 class PlayerCustomizer {
-    constructor(scene, player) {
+    constructor(scene, player, networkManager = null) {
         this.scene = scene;
         this.player = player;
+        this.networkManager = networkManager;
         this.container = null;
         this.isVisible = false;
         this.generatedImages = [];
@@ -300,6 +301,13 @@ class PlayerCustomizer {
             if (response && response.output && response.output.model_file) {
                 this.glbModelUrl = response.output.model_file;
                 this.createModelPreviewUI(this.glbModelUrl);
+                if (this.networkManager) {
+                    // Send the model update to other players
+                    this.networkManager.sendModelUpdate({
+                        modelUrl: this.glbModelUrl,
+                        customizations: this.customizationSettings // If you have any customization settings
+                    });
+                }
             } else {
                 throw new Error('Failed to generate 3D model');
             }

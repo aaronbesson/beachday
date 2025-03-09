@@ -1,0 +1,81 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build directories
+/dist
+/build
+/out
+
+# Generated assets
+/generated
+/assets/generated
+
+# Log files
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+.vs/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*~
+
+# Media files that should be managed elsewhere (consider using Git LFS)
+# Comment these out if you want to include them in version control
+# *.png
+# *.jpg
+# *.jpeg
+# *.gif
+# *.glb
+# *.gltf
+# *.obj
+# *.mtl
+# *.mp3
+# *.mp4
+# *.wav
+
+# Large binary models and textures
+# *.bin
+
+# Debug files
+.nyc_output/
+coverage/
+
+# Server-specific files
+http-server.pid
+
+# Replicate API models or generated content
+replicate-output/ 

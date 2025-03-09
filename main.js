@@ -9,6 +9,7 @@ import { SimplexNoise } from 'three/addons/math/SimplexNoise.js';
 // Import our custom modules
 import { PlayerCustomizer } from './playerCustomizer.js';
 import { ReplicateAPI } from './replicateApi.js';
+import { NetworkManager } from './networkManager.js';
 
 // Main scene variables
 let scene, camera, renderer, controls, fpControls;
@@ -21,7 +22,7 @@ let player = {
     height: 1.0, // Height offset above terrain
     lastGroundY: 0, // Last detected ground height
     model: null, // Will store the squirrel model
-    modelOffset: {x: 0, y: -3.0, z: 0} // Offset for the model relative to camera
+    modelOffset: {x: 0, y: 0, z: 0} // Offset for the model relative to camera
 };
 
 // Movement control state
@@ -48,6 +49,8 @@ const BIRD_COUNT = 2;
 
 // Global variables for our application
 let playerCustomizer;
+let networkManager;
+let otherPlayers = {}; // Will store other connected players
 
 // Initialize the scene
 function init() {
@@ -108,6 +111,15 @@ function init() {
     // Setup first-person controls and player
     setupPlayer();
     
+    // Initialize multiplayer
+    initMultiplayer();
+    
+    // Initialize player customizer
+    playerCustomizer = new PlayerCustomizer(scene, player);
+    
+    // Update playerCustomizer with networkManager after init
+    playerCustomizer.networkManager = networkManager;
+    
     // Setup event listeners for UI
     setupEventListeners();
 
@@ -136,7 +148,7 @@ function setupPlayer() {
         player.model.scale.set(3, 3, 3);
         
         // Set initial position - raised higher
-        player.model.position.set(0, 50, -10); // Start in front of camera
+        player.model.position.set(0, 10, -10); // Start in front of camera
         
         console.log("Squirrel model added to scene at:", player.model.position);
         
@@ -843,7 +855,6 @@ function getTerrainHeight(x, z) {
         const intersects = raycaster.intersectObject(terrain);
         
         if (intersects.length > 0) {
-            console.log("Found terrain height via raycast:", intersects[0].point.y);
             return intersects[0].point.y;
         }
         
@@ -985,6 +996,28 @@ function animate() {
                 console.log("Model visible:", player.model.visible);
             }
         }
+        
+        // Send position updates if connected to network
+        if (networkManager && networkManager.connected && player.model) {
+            // Get the camera direction for rotation calculation
+            const cameraDirection = new THREE.Vector3();
+            camera.getWorldDirection(cameraDirection);
+            
+            // Calculate the Y rotation (yaw) from the direction vector
+            const rotationY = Math.atan2(cameraDirection.x, cameraDirection.z);
+            
+            // Send only actual position and Y rotation
+            networkManager.sendUpdate({
+                position: {
+                    x: player.model.position.x,
+                    y: player.model.position.y,
+                    z: player.model.position.z
+                },
+                rotation: {
+                    y: rotationY // Send camera's Y rotation instead of model rotation
+                }
+            });
+        }
     } else {
         // Update orbit controls
         if (controls) controls.update();
@@ -1079,4 +1112,164 @@ function animate() {
 }
 
 // Start the application
-init(); 
+init();
+
+// Add new function to initialize multiplayer
+function initMultiplayer() {
+    // Create network manager
+    networkManager = new NetworkManager({
+        onInit: handleInitialConnection,
+        onPlayerJoined: handlePlayerJoined,
+        onPlayerLeft: handlePlayerLeft,
+        onPlayerUpdate: handlePlayerUpdate
+    });
+    
+    // Connect to server
+    networkManager.connect();
+}
+
+// Add handler functions for network events
+function handleInitialConnection(data) {
+    console.log(`Connected to server with ID: ${data.id}`);
+    
+    // Store our player ID
+    player.id = data.id;
+    
+    // Add any existing players
+    Object.keys(data.players).forEach(id => {
+        if (id !== player.id) {
+            addOtherPlayer(data.players[id]);
+        }
+    });
+}
+
+function handlePlayerJoined(data) {
+    console.log(`Player joined: ${data.player.id}`);
+    addOtherPlayer(data.player);
+}
+
+function handlePlayerLeft(data) {
+    console.log(`Player left: ${data.id}`);
+    removeOtherPlayer(data.id);
+}
+
+function handlePlayerUpdate(data) {
+    updateOtherPlayer(data.player);
+}
+
+// Add/remove/update other players
+function addOtherPlayer(playerData) {
+    // Clone our player model for other players
+    const loader = new GLTFLoader();
+    
+    loader.load('./assets/squirrel.glb', (gltf) => {
+        const playerModel = gltf.scene.clone();
+        
+        // Apply any custom appearance if provided
+        if (playerData.model) {
+            // Apply customizations from playerData.model
+            // This would depend on how your PlayerCustomizer works
+        }
+        
+        playerModel.scale.set(3, 3, 3);
+        
+        // Get terrain height for proper positioning
+        const terrainY = getTerrainHeight(playerData.position.x, playerData.position.z);
+        const minHeight = Math.max(terrainY, WATER_LEVEL + 0.5);
+        
+        // Set initial position with proper ground alignment
+        playerModel.position.set(
+            playerData.position.x,
+            minHeight + 2.5, // Same offset used for local player
+            playerData.position.z
+        );
+        
+        // Set initial rotation
+        playerModel.rotation.y = playerData.rotation.y;
+        
+        // Add name tag above player
+        const nameTag = createNameTag(playerData.id.substring(0, 6));
+        playerModel.add(nameTag);
+        
+        scene.add(playerModel);
+        
+        // Store reference to this player
+        otherPlayers[playerData.id] = {
+            model: playerModel,
+            data: playerData
+        };
+    });
+}
+
+function removeOtherPlayer(playerId) {
+    if (otherPlayers[playerId]) {
+        scene.remove(otherPlayers[playerId].model);
+        delete otherPlayers[playerId];
+    }
+}
+
+function updateOtherPlayer(playerData) {
+    const player = otherPlayers[playerData.id];
+    if (player) {
+        // Update stored data
+        player.data = playerData;
+        
+        // Get the model
+        const model = player.model;
+        
+        // Update position with proper ground alignment
+        // We use lerp for smooth transitions between network updates
+        const targetPosition = new THREE.Vector3(
+            playerData.position.x,
+            playerData.position.y,
+            playerData.position.z
+        );
+        
+        // Smoothly update position
+        model.position.lerp(targetPosition, 0.3);
+        
+        // Only update Y rotation (don't tilt the model)
+        model.rotation.y = playerData.rotation.y;
+        
+        // Make sure the model is properly aligned to terrain
+        const terrainY = getTerrainHeight(model.position.x, model.position.z);
+        const minHeight = Math.max(terrainY, WATER_LEVEL + 0.5);
+        
+        // Apply ground alignment with small offset to prevent terrain clipping
+        model.position.y = minHeight + 2.5; // Same offset used for local player
+        
+        // Apply any model updates if provided
+        if (playerData.model) {
+            // Update model appearance based on received data
+            // This would depend on your customization system
+        }
+    }
+}
+
+// Create a floating name tag for other players
+function createNameTag(name) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 256;
+    canvas.height = 64;
+    
+    // Draw name tag background
+    context.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw name text
+    context.font = '32px Arial';
+    context.fillStyle = 'white';
+    context.textAlign = 'center';
+    context.fillText(name, canvas.width / 2, canvas.height / 2 + 10);
+    
+    // Create texture and sprite
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(material);
+    
+    sprite.position.y = 8; // Position above player model
+    sprite.scale.set(10, 2.5, 1);
+    
+    return sprite;
+} 
