@@ -6,9 +6,13 @@ import { Water } from 'three/addons/objects/Water.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { SimplexNoise } from 'three/addons/math/SimplexNoise.js';
 
+// Import our custom modules
+import { PlayerCustomizer } from './playerCustomizer.js';
+import { ReplicateAPI } from './replicateApi.js';
+
 // Main scene variables
 let scene, camera, renderer, controls, fpControls;
-let terrain, water, sky, sun, directionalLight, clouds, birds, sharks;
+let terrain, water, sky, sun, directionalLight, clouds, birds;
 let clock = new THREE.Clock();
 
 // Player settings
@@ -41,7 +45,9 @@ const SUN_HEIGHT = 400;
 const TREE_COUNT = 500;
 const CLOUD_COUNT = 12;
 const BIRD_COUNT = 2;
-const SHARK_COUNT = 6; // Number of sharks to create
+
+// Global variables for our application
+let playerCustomizer;
 
 // Initialize the scene
 function init() {
@@ -94,7 +100,6 @@ function init() {
     createTrees();
     createClouds();
     createBirds();
-    createSharks();
     
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -103,8 +108,7 @@ function init() {
     // Setup first-person controls and player
     setupPlayer();
     
-    // Event listeners
-    window.addEventListener('resize', onWindowResize);
+    // Setup event listeners for UI
     setupEventListeners();
 
     // Print instructions to console
@@ -135,6 +139,9 @@ function setupPlayer() {
         player.model.position.set(0, 50, -10); // Start in front of camera
         
         console.log("Squirrel model added to scene at:", player.model.position);
+        
+        // Initialize player customizer after model is loaded
+        playerCustomizer = new PlayerCustomizer(scene, player);
     }, 
     // Progress callback
     (xhr) => {
@@ -232,6 +239,13 @@ function setupEventListeners() {
             case 'ArrowRight':
                 moveRight = false;
                 break;
+        }
+    });
+    
+    // Add event listener for the customizer button
+    document.getElementById('open-customizer').addEventListener('click', () => {
+        if (playerCustomizer) {
+            playerCustomizer.toggle();
         }
     });
 }
@@ -795,75 +809,6 @@ function createBirds() {
     scene.add(birds);
 }
 
-// Create sharks with visible fins
-function createSharks() {
-    sharks = new THREE.Group();
-    scene.add(sharks);
-    
-    console.log("Creating sharks - water level is:", WATER_LEVEL);
-    
-    function createShark(position) {
-        // Create shark fin
-        const sharkGroup = new THREE.Group();
-        
-        // Create a classic triangular shark fin - 2x larger
-        const finGeometry = new THREE.ConeGeometry(0, 3.0, 1);
-        finGeometry.rotateX(Math.PI / 2);
-        
-        // Create fin material - dark gray
-        const finMaterial = new THREE.MeshStandardMaterial({
-            color: 0x202020,
-            roughness: 0.6,
-            metalness: 0.2
-        });
-        
-        // Create fin mesh
-        const fin = new THREE.Mesh(finGeometry, finMaterial);
-        fin.castShadow = true;
-        fin.position.y = 1.0; // Adjust position to account for larger size
-        sharkGroup.add(fin);
-        
-        // Position the shark at water level
-        sharkGroup.position.copy(position);
-        
-        // Add movement data similar to birds
-        sharkGroup.userData = { 
-            id: Math.random(),
-            speed: 0.1,
-            radius: 50 + Math.random() * 200,
-            height: position.y,
-            angle: Math.random() * Math.PI * 2
-        };
-        
-        sharks.add(sharkGroup);
-        return sharkGroup;
-    }
-    
-    // Create sharks at random positions in water
-    for (let i = 0; i < SHARK_COUNT; i++) {
-        const radius = (Math.random() * 0.6 + 0.2) * TERRAIN_SIZE / 2;
-        const angle = Math.random() * Math.PI * 2;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
-        
-        // Make sure sharks are in water - check height at position
-        const terrainY = getTerrainHeight(x, z);
-        
-        // Only place shark if area is underwater
-        if (terrainY < WATER_LEVEL - 0.5) {
-            // Position shark at water level
-            const sharkPosition = new THREE.Vector3(x, WATER_LEVEL, z);
-            createShark(sharkPosition);
-        } else {
-            // Try again if position is not underwater
-            i--;
-        }
-    }
-    
-    console.log(`Created ${sharks.children.length} sharks`);
-    return sharks;
-}
-
 // Handle window resize
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -1103,30 +1048,6 @@ function animate() {
             if (bird.children[3]) {
                 bird.children[3].rotation.x = -Math.PI / 6 + Math.sin(time * data.wingSpeed * 5) * 0.1;
             }
-        });
-    }
-    
-    // Update shark movement
-    if (sharks) {
-        sharks.children.forEach(shark => {
-            const data = shark.userData;
-            
-            // Update shark position in circular pattern - EXACTLY like birds
-            data.angle += data.speed * 0.01;
-            
-            // Natural movement pattern
-            const radius = data.radius + Math.sin(data.angle * 2) * 20;
-            shark.position.x = Math.cos(data.angle) * radius;
-            shark.position.z = Math.sin(data.angle) * radius;
-            
-            // Keep at water level with slight bobbing
-            shark.position.y = WATER_LEVEL + Math.sin(data.angle * 3) * 0.2;
-            
-            // Make shark face the direction it's moving
-            shark.rotation.y = -data.angle + Math.PI / 2;
-            
-            // Add slight tilt for more natural movement
-            shark.rotation.z = Math.cos(data.angle) * 0.1;
         });
     }
     
