@@ -165,7 +165,7 @@ function setupPlayer() {
         player.model.position.y += 5;
         
         // Set initial position - raised higher
-        player.model.position.set(0, 50, -10); // Start in front of camera
+        player.model.position.set(50, 50, 50); // Start in front of camera
         
         console.log("Squirrel model added to scene at:", player.model.position);
         
@@ -548,6 +548,8 @@ function createWater() {
     
     water.rotation.x = -Math.PI / 2;
     water.position.y = WATER_LEVEL + 6;
+
+    water.material.side = THREE.DoubleSide;
     
     scene.add(water);
 }
@@ -568,7 +570,7 @@ function getTerrainHeight(x, z) {
         const intersects = raycaster.intersectObject(terrain);
         
         if (intersects.length > 0) {
-            console.log("Found terrain height via raycast:", intersects[0].point.y);
+            // console.log("Found terrain height via raycast:", intersects[0].point.y);
             return intersects[0].point.y;
         }
         
@@ -654,7 +656,7 @@ function animate() {
         
         // Check if player is underwater and update overlay
         const underwaterOverlay = document.getElementById('underwater-overlay');
-        if (terrainY < WATER_LEVEL) {
+        if (terrainY < 0.5) {
             if (underwaterOverlay) underwaterOverlay.style.opacity = '0.5';
         } else {
             if (underwaterOverlay) underwaterOverlay.style.opacity = '0';

@@ -161,7 +161,7 @@ label {
     z-index: 50;
     opacity: 0;
     transition: opacity 0.5s ease;
-    background-color: rgba(0, 70, 150, 0.7);
+    background-color: rgba(0, 70, 150, 0.9);
 }
 
 #compass {
