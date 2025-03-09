@@ -153,7 +153,10 @@ function setupPlayer() {
     });
 
     // Create pointer lock controls (now for third-person)
-    fpControls = new PointerLockControls(camera, document.body);
+    const lockElement = document.createElement('div');
+    lockElement.style.display = 'none';
+    document.body.appendChild(lockElement);
+    fpControls = new PointerLockControls(camera, lockElement);
     scene.add(fpControls.getObject());
     
     // Position the camera higher and behind for third-person view
@@ -1057,6 +1060,18 @@ function animate() {
                 bird.children[3].rotation.x = -Math.PI / 6 + Math.sin(time * data.wingSpeed * 5) * 0.1;
             }
         });
+    }
+    
+    // Update compass
+    if (isLocked) {
+        const compassArrow = document.getElementById('compass-arrow');
+        if (compassArrow) {
+            const direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            const angle = Math.atan2(direction.x, direction.z);
+            const degrees = (-angle * 180 / Math.PI) + 180; // Negate the angle to reverse the direction
+            compassArrow.style.transform = `translate(-50%, -50%) rotate(${degrees}deg)`;
+        }
     }
     
     // Render scene
