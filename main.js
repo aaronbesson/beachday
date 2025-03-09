@@ -11,13 +11,13 @@ let clock = new THREE.Clock();
 
 // Parameters
 const TERRAIN_SIZE = 1000;
-const TERRAIN_SEGMENTS = 128;
+const TERRAIN_SEGMENTS = 20;
 const TERRAIN_HEIGHT = 60;
 const WATER_LEVEL = 0;
 const SUN_HEIGHT = 400;
 const TREE_COUNT = 100;
 const CLOUD_COUNT = 20;
-const BIRD_COUNT = 15;
+const BIRD_COUNT = 2;
 
 // Initialize the scene
 function init() {
