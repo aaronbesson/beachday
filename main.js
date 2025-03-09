@@ -2,27 +2,29 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Water } from 'three/addons/objects/Water.js';
 import { Sky } from 'three/addons/objects/Sky.js';
-import { SimplexNoise } from 'three/addons/math/SimplexNoise.js';
+import { Water } from 'three/addons/objects/Water.js';
 
 // Import our custom modules
+import { createBirds, updateBirds } from './modules/createBirds.js';
+import { createClouds, updateClouds } from './modules/createClouds.js';
+import { createPigs, updatePigs } from './modules/createPigs.js';
+import { createTerrain } from './modules/createTerrain.js';
+import { createTrees } from './modules/createTrees.js';
 import { PlayerCustomizer } from './playerCustomizer.js';
-import { ReplicateAPI } from './replicateApi.js';
-import { NetworkManager } from './networkManager.js';
 
 // Main scene variables
 let scene, camera, renderer, controls, fpControls;
-let terrain, water, sky, sun, directionalLight, clouds, birds;
+let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees;
 let clock = new THREE.Clock();
 
 // Player settings
 let player = {
-    speed: 0.5,
-    height: 1.0, // Height offset above terrain
+    speed: 5,
+    height: 0, // Height offset above terrain
     lastGroundY: 0, // Last detected ground height
     model: null, // Will store the squirrel model
-    modelOffset: {x: 0, y: 0, z: 0} // Offset for the model relative to camera
+    modelOffset: {x: 0, y: -3.0, z: 0} // Offset for the model relative to camera
 };
 
 // Movement control state
@@ -38,19 +40,18 @@ let jumpTime = 0;
 let terrainGeometry;
 
 // Parameters
-const TERRAIN_SIZE = 3000;
+const TERRAIN_SIZE = 3000; // small for testing
 const TERRAIN_SEGMENTS = 124;
 const TERRAIN_HEIGHT = 57;
 const WATER_LEVEL = 10;
 const SUN_HEIGHT = 400;
 const TREE_COUNT = 500;
-const CLOUD_COUNT = 12;
+const CLOUD_COUNT = 20;
 const BIRD_COUNT = 2;
+const PIG_COUNT = 4; // Number of pigs in the herd
 
 // Global variables for our application
 let playerCustomizer;
-let networkManager;
-let otherPlayers = {}; // Will store other connected players
 
 // Initialize the scene
 function init() {
@@ -98,11 +99,25 @@ function init() {
     // Create scene elements
     createSky();
     createLighting();
-    createTerrain();
+    
+    // Create terrain from the module
+    const terrainResult = createTerrain(scene, TERRAIN_SIZE, TERRAIN_SEGMENTS, WATER_LEVEL);
+    terrain = terrainResult.terrain;
+    terrainGeometry = terrainResult.geometry;
+    
     createWater();
-    createTrees();
-    createClouds();
-    createBirds();
+    
+    // Create trees from the module
+    trees = createTrees(scene, terrain, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, TREE_COUNT);
+    
+    // Create clouds from the module
+    clouds = createClouds(scene, TERRAIN_SIZE, CLOUD_COUNT);
+    
+    // Create birds from the module
+    birds = createBirds(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BIRD_COUNT);
+    
+    // Create pigs from the module
+    pigs = createPigs(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, PIG_COUNT);
     
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -110,11 +125,6 @@ function init() {
     
     // Setup first-person controls and player
     setupPlayer();
-    
-    // Initialize multiplayer
-    initMultiplayer();
-    
-    // PlayerCustomizer is now initialized inside setupPlayer() after the model is loaded
     
     // Setup event listeners for UI
     setupEventListeners();
@@ -134,22 +144,22 @@ function setupPlayer() {
     console.log("Attempting to load squirrel model from ./assets/squirrel.glb");
     
     loader.load('./assets/squirrel.glb', (gltf) => {
+        console.log("Squirrel model loaded successfully", gltf);
         player.model = gltf.scene;
+        
+        // Add the model to the scene
         scene.add(player.model);
         
-        // Scale and position model appropriately
+        // Scale model appropriately - adjust this value if needed
         player.model.scale.set(3, 3, 3);
-        player.model.position.set(0, 50, -10);
+        
+        // Set initial position - raised higher
+        player.model.position.set(0, 50, -10); // Start in front of camera
         
         console.log("Squirrel model added to scene at:", player.model.position);
         
         // Initialize player customizer after model is loaded
         playerCustomizer = new PlayerCustomizer(scene, player);
-        
-        // Update playerCustomizer with networkManager after init
-        if (networkManager) {
-            playerCustomizer.networkManager = networkManager;
-        }
     }, 
     // Progress callback
     (xhr) => {
@@ -161,10 +171,7 @@ function setupPlayer() {
     });
 
     // Create pointer lock controls (now for third-person)
-    const lockElement = document.createElement('div');
-    lockElement.style.display = 'none';
-    document.body.appendChild(lockElement);
-    fpControls = new PointerLockControls(camera, lockElement);
+    fpControls = new PointerLockControls(camera, document.body);
     scene.add(fpControls.getObject());
     
     // Position the camera higher and behind for third-person view
@@ -367,118 +374,6 @@ function createSky() {
     updateSun();
 }
 
-// Create terrain using simplex noise
-function createTerrain() {
-    const geometry = new THREE.PlaneGeometry(
-        TERRAIN_SIZE, 
-        TERRAIN_SIZE, 
-        TERRAIN_SEGMENTS, 
-        TERRAIN_SEGMENTS
-    );
-    geometry.rotateX(-Math.PI / 2);
-    
-    // Apply simplex noise to create heights with more detail layers
-    const simplex = new SimplexNoise();
-    const vertices = geometry.attributes.position.array;
-    
-    // Store height data for physics
-    const heightData = [];
-    
-    for (let i = 0; i < vertices.length; i += 3) {
-        const x = vertices[i];
-        const z = vertices[i + 2];
-        
-        // Multiple noise layers for more interesting detailed terrain
-        const noise1 = simplex.noise(x * 0.001, z * 0.001);
-        // const noise2 = simplex.noise(x * 0.01, z * 0.01) * 0.3;
-        // const noise3 = simplex.noise(x * 0.05, z * 0.05) * 0.1;
-        // const noise4 = simplex.noise(x * 0.2, z * 0.2) * 0.05;
-        // const noise5 = simplex.noise(x * 0.4, z * 0.4) * 0.025;
-        
-        let height = (noise1) * 200;
-        
-        // Smoother transition for underwater areas
-        if (height < WATER_LEVEL + 2) {
-            height = WATER_LEVEL - 2 + Math.random() * 1;
-        }
-        
-        vertices[i + 1] = height;
-        
-        // Store height data for reference
-        const xIndex = Math.floor((x + TERRAIN_SIZE/2) / (TERRAIN_SIZE/TERRAIN_SEGMENTS));
-        const zIndex = Math.floor((z + TERRAIN_SIZE/2) / (TERRAIN_SIZE/TERRAIN_SEGMENTS));
-        if (!heightData[zIndex]) heightData[zIndex] = [];
-        heightData[zIndex][xIndex] = height;
-    }
-    
-    // Compute normals for proper lighting
-    geometry.computeVertexNormals();
-    
-    // Create terrain material
-    const material = new THREE.MeshStandardMaterial({
-        color: 0x3d9e56,
-        roughness: 2,
-        metalness: 0.1,
-        flatShading: false,
-        vertexColors: false
-    });
-    
-    // Add more detailed color variations
-    const colors = [];
-    for (let i = 0; i < vertices.length; i += 3) {
-        const y = vertices[i + 1];
-        
-        if (y < WATER_LEVEL + 5) {
-            material.vertexColors = true;
-            // Sandy beach color with slight variations
-            const sandVariation = Math.random() * 0.05;
-            colors.push(0.76 + sandVariation, 0.7 + sandVariation, 0.5 + sandVariation);
-        } else if (y < WATER_LEVEL + 15) {
-            material.vertexColors = true;
-            // Blend between sand and grass with more natural transition
-            const blend = (y - (WATER_LEVEL + 5)) / 10;
-            const greenVariation = Math.random() * 0.05;
-            colors.push(
-                0.76 * (1 - blend) + (0.2 + greenVariation) * blend,
-                0.7 * (1 - blend) + (0.6 + greenVariation) * blend,
-                0.5 * (1 - blend) + (0.3 - greenVariation) * blend
-            );
-        } else if (y < WATER_LEVEL + 40) {
-            // Regular grass/vegetation colors with variations
-            const greenVariation = Math.random() * 0.1;
-            colors.push(0.2 + greenVariation, 0.6 - greenVariation * 0.5, 0.3 - greenVariation);
-        } else {
-            // Higher elevation - slightly different color for mountain tops
-            const stoneVariation = Math.random() * 0.05;
-            colors.push(0.6 + stoneVariation, 0.6 + stoneVariation, 0.6 + stoneVariation);
-        }
-    }
-    
-    if (material.vertexColors) {
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    }
-    
-    // Create a bump map for added detail
-    const displacementTexture = new THREE.DataTexture(
-        new Uint8Array(TERRAIN_SEGMENTS * TERRAIN_SEGMENTS).map(() => Math.random() * 255),
-        TERRAIN_SEGMENTS,
-        TERRAIN_SEGMENTS,
-        THREE.RedFormat
-    );
-    displacementTexture.needsUpdate = true;
-    material.displacementMap = displacementTexture;
-    material.displacementScale = 2;
-    
-    terrain = new THREE.Mesh(geometry, material);
-    terrain.receiveShadow = true;
-    terrain.castShadow = true;
-    scene.add(terrain);
-    
-    terrainGeometry = geometry;
-    
-    return terrain;
-}
-
 // Create reflective water
 function createWater() {
     const waterGeometry = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, 128, 128);
@@ -507,327 +402,6 @@ function createWater() {
     scene.add(water);
 }
 
-// Create trees
-function createTrees() {
-    // Find positions on terrain that are above water level
-    const potentialPositions = [];
-    const terrainVertices = terrain.geometry.attributes.position.array;
-    
-    for (let i = 0; i < terrainVertices.length; i += 3) {
-        const x = terrainVertices[i];
-        const y = terrainVertices[i + 1];
-        const z = terrainVertices[i + 2];
-        
-        // Only place trees on terrain above water + 5 units
-        if (y > WATER_LEVEL + 5) {
-            potentialPositions.push(new THREE.Vector3(x, y, z));
-        }
-    }
-    
-    // Function to create a high-poly tree
-    function createTree(position, size) {
-        const treeGroup = new THREE.Group();
-        
-        // Create detailed trunk with texture
-        const trunkGeometry = new THREE.CylinderGeometry(size * 0.5, size * 0.7, size * 4, 12, 5);
-        const trunkMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x8B4513,
-            roughness: 0.9,
-            metalness: 0.1,
-            onBeforeCompile: shader => {
-                shader.vertexShader = shader.vertexShader.replace(
-                    '#include <begin_vertex>',
-                    `
-                    #include <begin_vertex>
-                    float noise = sin(position.y * 10.0) * 0.05 + sin(position.y * 20.0 + position.x * 5.0) * 0.02;
-                    transformed.x += noise * normal.x;
-                    transformed.z += noise * normal.z;
-                    `
-                );
-            }
-        });
-        
-        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.y = size * 2;
-        trunk.castShadow = true;
-        trunk.receiveShadow = true;
-        treeGroup.add(trunk);
-        
-        // Create detailed foliage with multiple layers
-        const foliageLayers = 3 + Math.floor(Math.random() * 2);
-        const foliageMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x2d4c1e,
-            roughness: 0.8,
-            metalness: 0.1,
-            flatShading: false
-        });
-        
-        for (let i = 0; i < foliageLayers; i++) {
-            // Use more detailed geometry
-            const foliageGeometry = new THREE.IcosahedronGeometry(
-                size * (3 - i * 0.5),
-                2
-            );
-            
-            // Add variation to vertices
-            const positions = foliageGeometry.attributes.position.array;
-            for (let j = 0; j < positions.length; j += 3) {
-                positions[j] += (Math.random() - 0.5) * size * 0.1;
-                positions[j + 1] += (Math.random() - 0.5) * size * 0.1;
-                positions[j + 2] += (Math.random() - 0.5) * size * 0.1;
-            }
-            foliageGeometry.computeVertexNormals();
-            
-            const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial.clone());
-            
-            // Vary colors slightly for each layer
-            foliage.material.color.setHSL(
-                0.3 + Math.random() * 0.05,
-                0.6 + Math.random() * 0.1,
-                0.4 + Math.random() * 0.1
-            );
-            
-            foliage.position.y = size * (6 + i * 1.5);
-            foliage.castShadow = true;
-            foliage.receiveShadow = true;
-            treeGroup.add(foliage);
-        }
-        
-        // Position the tree
-        treeGroup.position.set(position.x, position.y, position.z);
-        
-        // Random rotation for variety
-        treeGroup.rotation.y = Math.random() * Math.PI * 2;
-        
-        return treeGroup;
-    }
-    
-    // Create trees at random positions
-    for (let i = 0; i < Math.min(TREE_COUNT, potentialPositions.length); i++) {
-        // Pick a random position from potential positions
-        const randomIndex = Math.floor(Math.random() * potentialPositions.length);
-        const position = potentialPositions[randomIndex];
-        
-        // Remove the selected position to avoid placing multiple trees at the same spot
-        potentialPositions.splice(randomIndex, 1);
-        
-        // Random tree size
-        const size = 1 + Math.random() * 2;
-        
-        const tree = createTree(position, size);
-        scene.add(tree);
-    }
-}
-
-// Create high-poly clouds
-function createClouds() {
-    clouds = new THREE.Group();
-    
-    // Function to create a single cloud with higher detail
-    function createCloud(x, y, z, scale) {
-        const cloudGroup = new THREE.Group();
-        
-        // Create multiple cloud puffs with higher poly count
-        const puffCount = 5 + Math.floor(Math.random() * 5);
-        const cloudMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0xffffff,
-            roughness: 0.3,
-            metalness: 0.1,
-            transparent: true,
-            opacity: 0.9,
-            emissive: 0xffffff,
-            emissiveIntensity: 0.1
-        });
-        
-        for (let i = 0; i < puffCount; i++) {
-            const puffSize = (0.5 + Math.random() * 0.5) * scale;
-            // Higher detail sphere with displacement for fluffy effect
-            const puffGeometry = new THREE.IcosahedronGeometry(puffSize, 3);
-            
-            // Add noise to puff vertices
-            const positions = puffGeometry.attributes.position.array;
-            for (let j = 0; j < positions.length; j += 3) {
-                const vertex = new THREE.Vector3(positions[j], positions[j+1], positions[j+2]);
-                const distance = vertex.length();
-                vertex.normalize();
-                
-                // Add noise based on position
-                const noise = Math.sin(vertex.x * 10 + vertex.y * 10) * 0.1 + 
-                              Math.sin(vertex.y * 8 + vertex.z * 8) * 0.1;
-                
-                // Apply noise
-                vertex.multiplyScalar(distance * (1 + noise * 0.2));
-                positions[j] = vertex.x;
-                positions[j+1] = vertex.y;
-                positions[j+2] = vertex.z;
-            }
-            
-            puffGeometry.computeVertexNormals();
-            
-            const puff = new THREE.Mesh(puffGeometry, cloudMaterial.clone());
-            
-            // Position puffs to form a more natural cloud shape
-            const u = i / puffCount;
-            const angle = u * Math.PI * 2;
-            const radius = scale * 0.5 * (0.8 + Math.random() * 0.4);
-            const offsetX = Math.cos(angle) * radius;
-            const offsetZ = Math.sin(angle) * radius;
-            const offsetY = (Math.random() - 0.5) * scale * 0.3;
-            
-            puff.position.set(offsetX, offsetY, offsetZ);
-            
-            // Random rotation for each puff
-            puff.rotation.set(
-                Math.random() * Math.PI * 2,
-                Math.random() * Math.PI * 2,
-                Math.random() * Math.PI * 2
-            );
-            
-            // Vary the brightness slightly
-            puff.material.emissiveIntensity = 0.05 + Math.random() * 0.08;
-            
-            cloudGroup.add(puff);
-        }
-        
-        // Position the cloud
-        cloudGroup.position.set(x, y, z);
-        
-        // Add unique ID for animation
-        cloudGroup.userData = { 
-            id: Math.random(),
-            speed: 0.05 + Math.random() * 0.1
-        };
-        
-        return cloudGroup;
-    }
-    
-    // Create clouds at random positions
-    for (let i = 0; i < CLOUD_COUNT; i++) {
-        const x = (Math.random() - 0.5) * TERRAIN_SIZE;
-        const y = 100 + Math.random() * 100;
-        const z = (Math.random() - 0.5) * TERRAIN_SIZE;
-        
-        // Random cloud size
-        const scale = 10 + Math.random() * 20;
-        
-        const cloud = createCloud(x, y, z, scale);
-        clouds.add(cloud);
-    }
-    
-    scene.add(clouds);
-}
-
-// Create high-poly birds
-function createBirds() {
-    birds = new THREE.Group();
-    
-    // Function to create a single detailed bird
-    function createBird(position, size) {
-        const birdGroup = new THREE.Group();
-        
-        // Create bird body with more detail
-        const bodyGeometry = new THREE.ConeGeometry(size, size * 3, 8, 3);
-        const bodyMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x222222,
-            roughness: 0.8,
-            metalness: 0.1,
-            flatShading: false
-        });
-        
-        // Add noise to body
-        const bodyPositions = bodyGeometry.attributes.position.array;
-        for (let i = 0; i < bodyPositions.length; i += 3) {
-            bodyPositions[i] += (Math.random() - 0.5) * size * 0.1;
-            bodyPositions[i + 1] += (Math.random() - 0.5) * size * 0.1;
-            bodyPositions[i + 2] += (Math.random() - 0.5) * size * 0.1;
-        }
-        bodyGeometry.computeVertexNormals();
-        
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.rotation.x = Math.PI / 2;
-        birdGroup.add(body);
-        
-        // Create more detailed wings
-        const wingShape = new THREE.Shape();
-        wingShape.moveTo(0, 0);
-        wingShape.quadraticCurveTo(size * 2, size * 0.5, size * 4, 0);
-        wingShape.quadraticCurveTo(size * 2, -size * 0.5, 0, 0);
-        
-        const wingGeometry = new THREE.ShapeGeometry(wingShape, 16);
-        const wingMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x222222,
-            side: THREE.DoubleSide,
-            flatShading: false,
-            transparent: true,
-            opacity: 0.9
-        });
-        
-        const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-        leftWing.position.set(-size * 0, 0, 0);
-        leftWing.rotation.y = Math.PI / 4;
-        birdGroup.add(leftWing);
-        
-        const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-        rightWing.position.set(size * 0, 0, 0);
-        rightWing.rotation.y = -Math.PI / 4;
-        birdGroup.add(rightWing);
-        
-        // Add tail feathers
-        const tailGeometry = new THREE.ConeGeometry(size * 0.5, size * 2, 4, 1);
-        const tail = new THREE.Mesh(tailGeometry, bodyMaterial.clone());
-        tail.position.set(0, 0, -size * 2);
-        tail.rotation.x = -Math.PI / 6;
-        birdGroup.add(tail);
-        
-        // Add head
-        const headGeometry = new THREE.SphereGeometry(size * 0.6, 8, 8);
-        const head = new THREE.Mesh(headGeometry, bodyMaterial.clone());
-        head.position.set(0, 0, size * 1.8);
-        birdGroup.add(head);
-        
-        // Add beak
-        const beakGeometry = new THREE.ConeGeometry(size * 0.2, size * 0.8, 4, 1);
-        const beakMaterial = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
-        const beak = new THREE.Mesh(beakGeometry, beakMaterial);
-        beak.position.set(0, 0, size * 2.5);
-        beak.rotation.x = -Math.PI / 2;
-        birdGroup.add(beak);
-        
-        // Position the bird
-        birdGroup.position.copy(position);
-        
-        // Add unique ID and flight data for animation
-        birdGroup.userData = { 
-            id: Math.random(),
-            speed: 0.3 + Math.random() * 0.3,
-            wingSpeed: 0.1 + Math.random() * 0.2,
-            radius: 50 + Math.random() * 200,
-            height: position.y,
-            angle: Math.random() * Math.PI * 2,
-            wingAngle: 0
-        };
-        
-        return birdGroup;
-    }
-    
-    // Create birds at random positions
-    for (let i = 0; i < BIRD_COUNT; i++) {
-        // Random position
-        const x = (Math.random() - 0.5) * TERRAIN_SIZE * 0.7;
-        const y = 50 + Math.random() * 100;
-        const z = (Math.random() - 0.5) * TERRAIN_SIZE * 0.7;
-        const position = new THREE.Vector3(x, y, z);
-        
-        // Random bird size
-        const size = 1 + Math.random() * 1.5;
-        
-        const bird = createBird(position, size);
-        birds.add(bird);
-    }
-    
-    scene.add(birds);
-}
-
 // Handle window resize
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -851,6 +425,7 @@ function getTerrainHeight(x, z) {
         const intersects = raycaster.intersectObject(terrain);
         
         if (intersects.length > 0) {
+            console.log("Found terrain height via raycast:", intersects[0].point.y);
             return intersects[0].point.y;
         }
         
@@ -992,28 +567,6 @@ function animate() {
                 console.log("Model visible:", player.model.visible);
             }
         }
-        
-        // Send position updates if connected to network
-        if (networkManager && networkManager.connected && player.model) {
-            // Get the camera direction for rotation calculation
-            const cameraDirection = new THREE.Vector3();
-            camera.getWorldDirection(cameraDirection);
-            
-            // Calculate the Y rotation (yaw) from the direction vector
-            const rotationY = Math.atan2(cameraDirection.x, cameraDirection.z);
-            
-            // Send only actual position and Y rotation
-            networkManager.sendUpdate({
-                position: {
-                    x: player.model.position.x,
-                    y: player.model.position.y,
-                    z: player.model.position.z
-                },
-                rotation: {
-                    y: rotationY // Send camera's Y rotation instead of model rotation
-                }
-            });
-        }
     } else {
         // Update orbit controls
         if (controls) controls.update();
@@ -1031,241 +584,18 @@ function animate() {
         }
     });
     
-    // Update cloud positions
-    if (clouds) {
-        clouds.children.forEach(cloud => {
-            cloud.position.x += cloud.userData.speed * delta;
-            
-            // If cloud moves off the terrain, reset it to the other side
-            if (cloud.position.x > TERRAIN_SIZE / 2) {
-                cloud.position.x = -TERRAIN_SIZE / 2;
-                cloud.position.z = (Math.random() - 0.5) * TERRAIN_SIZE;
-            }
-            
-            // Subtle cloud pulsing
-            cloud.children.forEach((puff, idx) => {
-                const pulseSpeed = 0.2 + idx * 0.05;
-                const pulseMagnitude = 0.02;
-                const pulse = Math.sin(time * pulseSpeed + cloud.userData.id * 10) * pulseMagnitude + 1;
-                puff.scale.set(pulse, pulse, pulse);
-            });
-        });
-    }
+    // Update cloud positions using the imported function
+    updateClouds(clouds, time, delta, TERRAIN_SIZE);
     
-    // Update bird animation
-    if (birds) {
-        birds.children.forEach(bird => {
-            const data = bird.userData;
-            
-            // Update bird position in circular flight
-            data.angle += data.speed * 0.01;
-            
-            // More natural flight path
-            const radius = data.radius + Math.sin(data.angle * 2) * 20;
-            bird.position.x = Math.cos(data.angle) * radius;
-            bird.position.z = Math.sin(data.angle) * radius;
-            
-            // Vertical movement with smoother curves
-            const verticalOffset = Math.sin(data.angle * 3) * 10 + Math.sin(data.angle * 7) * 5;
-            bird.position.y = data.height + verticalOffset;
-            
-            // More natural banking in turns
-            const bankAngle = Math.cos(data.angle) * 0.2;
-            bird.rotation.z = bankAngle;
-            
-            // Make bird face the direction it's flying with natural head movement
-            bird.rotation.y = -data.angle + Math.PI / 2 + Math.sin(time * 0.5) * 0.1;
-            
-            // More natural wing flapping with asymmetry
-            data.wingAngle = Math.sin(time * data.wingSpeed * 10) * 0.4;
-            const leftWingAngle = Math.PI / 4 + data.wingAngle;
-            const rightWingAngle = -Math.PI / 4 - data.wingAngle;
-            
-            if (bird.children[1]) bird.children[1].rotation.y = leftWingAngle;
-            if (bird.children[2]) bird.children[2].rotation.y = rightWingAngle;
-            
-            // Subtle tail movement
-            if (bird.children[3]) {
-                bird.children[3].rotation.x = -Math.PI / 6 + Math.sin(time * data.wingSpeed * 5) * 0.1;
-            }
-        });
-    }
+    // Update bird animation using the imported function
+    updateBirds(birds, time, delta);
     
-    // Update compass
-    if (isLocked) {
-        const compassArrow = document.getElementById('compass-arrow');
-        if (compassArrow) {
-            const direction = new THREE.Vector3();
-            camera.getWorldDirection(direction);
-            const angle = Math.atan2(direction.x, direction.z);
-            const degrees = (-angle * 180 / Math.PI) + 180; // Negate the angle to reverse the direction
-            compassArrow.style.transform = `translate(-50%, -50%) rotate(${degrees}deg)`;
-        }
-    }
+    // Update pigs using the imported function
+    updatePigs(pigs, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
     
     // Render scene
     renderer.render(scene, camera);
 }
 
 // Start the application
-init();
-
-// Add new function to initialize multiplayer
-function initMultiplayer() {
-    // Create network manager
-    networkManager = new NetworkManager({
-        onInit: handleInitialConnection,
-        onPlayerJoined: handlePlayerJoined,
-        onPlayerLeft: handlePlayerLeft,
-        onPlayerUpdate: handlePlayerUpdate
-    });
-    
-    // Connect to server
-    networkManager.connect();
-}
-
-// Add handler functions for network events
-function handleInitialConnection(data) {
-    console.log(`Connected to server with ID: ${data.id}`);
-    
-    // Store our player ID
-    player.id = data.id;
-    
-    // Add any existing players
-    Object.keys(data.players).forEach(id => {
-        if (id !== player.id) {
-            addOtherPlayer(data.players[id]);
-        }
-    });
-}
-
-function handlePlayerJoined(data) {
-    console.log(`Player joined: ${data.player.id}`);
-    addOtherPlayer(data.player);
-}
-
-function handlePlayerLeft(data) {
-    console.log(`Player left: ${data.id}`);
-    removeOtherPlayer(data.id);
-}
-
-function handlePlayerUpdate(data) {
-    updateOtherPlayer(data.player);
-}
-
-// Add/remove/update other players
-function addOtherPlayer(playerData) {
-    // Clone our player model for other players
-    const loader = new GLTFLoader();
-    
-    loader.load('./assets/squirrel.glb', (gltf) => {
-        const playerModel = gltf.scene.clone();
-        
-        // Apply any custom appearance if provided
-        if (playerData.model) {
-            // Apply customizations from playerData.model
-            // This would depend on how your PlayerCustomizer works
-        }
-        
-        playerModel.scale.set(3, 3, 3);
-        
-        // Get terrain height for proper positioning
-        const terrainY = getTerrainHeight(playerData.position.x, playerData.position.z);
-        const minHeight = Math.max(terrainY, WATER_LEVEL + 0.5);
-        
-        // Set initial position with proper ground alignment
-        playerModel.position.set(
-            playerData.position.x,
-            minHeight + 2.5, // Same offset used for local player
-            playerData.position.z
-        );
-        
-        // Set initial rotation
-        playerModel.rotation.y = playerData.rotation.y;
-        
-        // Add name tag above player
-        const nameTag = createNameTag(playerData.id.substring(0, 6));
-        playerModel.add(nameTag);
-        
-        scene.add(playerModel);
-        
-        // Store reference to this player
-        otherPlayers[playerData.id] = {
-            model: playerModel,
-            data: playerData
-        };
-    });
-}
-
-function removeOtherPlayer(playerId) {
-    if (otherPlayers[playerId]) {
-        scene.remove(otherPlayers[playerId].model);
-        delete otherPlayers[playerId];
-    }
-}
-
-function updateOtherPlayer(playerData) {
-    const player = otherPlayers[playerData.id];
-    if (player) {
-        // Update stored data
-        player.data = playerData;
-        
-        // Get the model
-        const model = player.model;
-        
-        // Update position with proper ground alignment
-        // We use lerp for smooth transitions between network updates
-        const targetPosition = new THREE.Vector3(
-            playerData.position.x,
-            playerData.position.y,
-            playerData.position.z
-        );
-        
-        // Smoothly update position
-        model.position.lerp(targetPosition, 0.3);
-        
-        // Only update Y rotation (don't tilt the model)
-        model.rotation.y = playerData.rotation.y;
-        
-        // Make sure the model is properly aligned to terrain
-        const terrainY = getTerrainHeight(model.position.x, model.position.z);
-        const minHeight = Math.max(terrainY, WATER_LEVEL + 0.5);
-        
-        // Apply ground alignment with small offset to prevent terrain clipping
-        model.position.y = minHeight + 2.5; // Same offset used for local player
-        
-        // Apply any model updates if provided
-        if (playerData.model) {
-            // Update model appearance based on received data
-            // This would depend on your customization system
-        }
-    }
-}
-
-// Create a floating name tag for other players
-function createNameTag(name) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 64;
-    
-    // Draw name tag background
-    context.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw name text
-    context.font = '32px Arial';
-    context.fillStyle = 'white';
-    context.textAlign = 'center';
-    context.fillText(name, canvas.width / 2, canvas.height / 2 + 10);
-    
-    // Create texture and sprite
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(material);
-    
-    sprite.position.y = 8; // Position above player model
-    sprite.scale.set(10, 2.5, 1);
-    
-    return sprite;
-} 
+init(); 
