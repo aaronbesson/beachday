@@ -11,7 +11,7 @@ let clock = new THREE.Clock();
 
 // Parameters
 const TERRAIN_SIZE = 1000;
-const TERRAIN_SEGMENTS = 20;
+const TERRAIN_SEGMENTS = 33;
 const TERRAIN_HEIGHT = 60;
 const WATER_LEVEL = 0;
 const SUN_HEIGHT = 400;
@@ -30,7 +30,7 @@ function init() {
     
     // Create camera
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
-    camera.position.set(0, 70, 150);
+    camera.position.set(12, 70, 150);
     camera.lookAt(0, 0, 0);
     
     // Create renderer
@@ -194,7 +194,7 @@ function createTerrain() {
         
         // Flatten areas below water level
         if (height < WATER_LEVEL + 2) {
-            height = WATER_LEVEL - 2 + Math.random() * 4;
+            height = WATER_LEVEL - 2 + Math.random() * 1;
         }
         
         vertices[i + 1] = height;
