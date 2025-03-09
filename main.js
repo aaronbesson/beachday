@@ -24,7 +24,12 @@ let player = {
     height: 0, // Height offset above terrain
     lastGroundY: 0, // Last detected ground height
     model: null, // Will store the squirrel model
-    modelOffset: {x: 0, y: -3.0, z: 0} // Offset for the model relative to camera
+    modelOffset: {x: 0, y: -3.0, z: 0}, // Offset for the model relative to camera
+    jumpHeight: 5, // Jump height
+    isJumping: false,
+    jumpTime: 0.8,
+    modelBaseHeight: 1.5, // Base height offset for the model
+    shadow: null // Will store the player shadow
 };
 
 // Movement control state
@@ -33,8 +38,6 @@ let moveBackward = false;
 let moveLeft = false;
 let moveRight = false;
 let isLocked = false;
-let isJumping = false;
-let jumpTime = 0;
 
 // Store terrain for height detection
 let terrainGeometry;
@@ -43,7 +46,7 @@ let terrainGeometry;
 const TERRAIN_SIZE = 3000; // small for testing
 const TERRAIN_SEGMENTS = 124;
 const TERRAIN_HEIGHT = 57;
-const WATER_LEVEL = 10;
+const WATER_LEVEL = 2;
 const SUN_HEIGHT = 400;
 const TREE_COUNT = 500;
 const CLOUD_COUNT = 20;
@@ -52,6 +55,9 @@ const PIG_COUNT = 4; // Number of pigs in the herd
 
 // Global variables for our application
 let playerCustomizer;
+
+// Add a flag to track if space is already pressed
+let spacePressed = false;
 
 // Initialize the scene
 function init() {
@@ -141,9 +147,13 @@ function init() {
 function setupPlayer() {
     // Load the squirrel model
     const loader = new GLTFLoader();
-    console.log("Attempting to load squirrel model from ./assets/squirrel.glb");
+
+    // load flying squirrel model if player is jumping
+    const flyingSquirrelModel = './assets/flying-squirrel.glb';
+    const regularSquirrelModel = './assets/squirrel.glb';
     
-    loader.load('./assets/squirrel.glb', (gltf) => {
+    
+    loader.load(player.isJumping ? flyingSquirrelModel : regularSquirrelModel, (gltf) => { 
         console.log("Squirrel model loaded successfully", gltf);
         player.model = gltf.scene;
         
@@ -151,12 +161,16 @@ function setupPlayer() {
         scene.add(player.model);
         
         // Scale model appropriately - adjust this value if needed
-        player.model.scale.set(3, 3, 3);
+        player.model.scale.set(4, 4, 4);
+        player.model.position.y += 5;
         
         // Set initial position - raised higher
         player.model.position.set(0, 50, -10); // Start in front of camera
         
         console.log("Squirrel model added to scene at:", player.model.position);
+        
+        // Create shadow for the player
+        createPlayerShadow();
         
         // Initialize player customizer after model is loaded
         playerCustomizer = new PlayerCustomizer(scene, player);
@@ -217,9 +231,135 @@ function setupPlayer() {
     });
 }
 
+function swapSquirrelModel(isJumping) {
+    // Remove current model if it exists
+    if (player.model) {
+        const currentPosition = player.model.position.clone();
+        const currentRotation = player.model.rotation.clone();
+        
+        // Store whether controls were locked before swap
+        const wasLocked = isLocked;
+        
+        // Remove from scene
+        scene.remove(player.model);
+        
+        // Load appropriate model
+        const loader = new GLTFLoader();
+        const modelPath = isJumping ? './assets/flying-squirrel.glb' : './assets/squirrel.glb';
+        
+        loader.load(modelPath, (gltf) => {
+            player.model = gltf.scene;
+            scene.add(player.model);
+            
+            // Set appropriate scale based on which model is loaded
+            if (isJumping) {
+                // Flying squirrel adjustments
+                player.model.scale.set(8, 6, 8);
+            } else {
+                // Regular squirrel scale
+                player.model.scale.set(4, 4, 4);
+            }
+            
+            // Apply position and rotation
+            player.model.position.copy(currentPosition);
+            player.model.rotation.copy(currentRotation);
+            
+            console.log(`Swapped to ${isJumping ? 'flying' : 'regular'} squirrel model`);
+            
+            // Make sure pointer lock is still active if it was before
+            if (wasLocked && !isLocked) {
+                console.log("Restoring pointer lock after model swap");
+                fpControls.lock();
+            }
+        });
+    }
+}
+
+// Modify shadow creation function for better visibility
+function createPlayerShadow() {
+    // Create a circular plane for the shadow
+    const shadowRadius = 3; // Larger shadow radius
+    const shadowGeometry = new THREE.CircleGeometry(shadowRadius, 32);
+    
+    // Create a radial gradient texture for the shadow
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    
+    // Create radial gradient
+    const gradient = context.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, 0,
+        canvas.width / 2, canvas.height / 2, canvas.width / 2
+    );
+    gradient.addColorStop(0, 'rgba(0,0,0,0.5)'); // Dark center
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');   // Transparent edges
+    
+    // Fill with gradient
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Create texture from canvas
+    const shadowTexture = new THREE.CanvasTexture(canvas);
+    
+    // Create material with this texture
+    const shadowMaterial = new THREE.MeshBasicMaterial({
+        map: shadowTexture,
+        transparent: true,
+        depthWrite: false
+    });
+    
+    // Create the shadow mesh
+    player.shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
+    
+    // Rotate to lie flat on the ground
+    player.shadow.rotation.x = -Math.PI / 2;
+    
+    // Set initial position
+    player.shadow.position.set(0, 0.1, 0); // Just above ground to prevent z-fighting
+    
+    // Add to scene
+    scene.add(player.shadow);
+    console.log("Player shadow created with gradient texture");
+}
+
+// Move the shadow update to a dedicated function for clarity
+function updatePlayerShadow() {
+    if (!player.model || !player.shadow) return;
+    
+    // Get terrain height directly below the player model
+    const modelX = player.model.position.x;
+    const modelZ = player.model.position.z;
+    const terrainY = getTerrainHeight(modelX, modelZ);
+    
+    // Place shadow exactly on terrain surface with small offset
+    const shadowY = Math.max(terrainY, WATER_LEVEL) + 0.8;
+    
+    // Update shadow position (x,z from player, y on terrain)
+    player.shadow.position.x = modelX;
+    player.shadow.position.z = modelZ;
+    player.shadow.position.y = shadowY;
+    
+    // Calculate height of player above ground for shadow effects
+    const heightAboveGround = player.model.position.y - shadowY;
+    
+    // Scale shadow based on height (smaller with distance)
+    const scaleBase = 1.0;
+    const scaleReduction = heightAboveGround / 50; // More gradual scaling
+    const shadowScale = Math.max(0.5, scaleBase - scaleReduction);
+    player.shadow.scale.set(shadowScale, shadowScale, shadowScale);
+    
+    // Adjust opacity based on height (more transparent with distance)
+    const opacityBase = 0.6; // Higher starting opacity
+    const opacityReduction = heightAboveGround / 60; // More gradual fading
+    player.shadow.material.opacity = Math.max(0.1, opacityBase - opacityReduction);
+}
+
 // Very simple key controls
 function setupEventListeners() {
     document.addEventListener('keydown', function(event) {
+        console.log("Key pressed:", event.code); // Debug log to see key presses
+        
         switch (event.code) {
             case 'KeyW':
             case 'ArrowUp':
@@ -238,10 +378,16 @@ function setupEventListeners() {
                 moveRight = true;
                 break;
             case 'Space':
-                // Start jumping if not already jumping
-                if (isLocked && !isJumping) {
-                    isJumping = true;
-                    jumpTime = 0;
+                // Only jump if space wasn't already pressed and not already jumping
+                if (!spacePressed && !player.isJumping && player.model) {
+                    spacePressed = true;
+                    player.isJumping = true;
+                    // Add upward velocity by setting Y position higher
+                    player.model.position.y += player.jumpHeight;
+                    console.log("JUMP! Starting Y:", player.model.position.y);
+                    
+                    // Swap to flying squirrel model
+                    swapSquirrelModel(true);
                 }
                 break;
         }
@@ -264,6 +410,10 @@ function setupEventListeners() {
             case 'KeyD':
             case 'ArrowRight':
                 moveRight = false;
+                break;
+            case 'Space':
+                // Reset space pressed flag on key up
+                spacePressed = false;
                 break;
         }
     });
@@ -402,13 +552,6 @@ function createWater() {
     scene.add(water);
 }
 
-// Handle window resize
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
 // Get height at specific x,z position on terrain
 function getTerrainHeight(x, z) {
     if (!terrainGeometry) return 0;
@@ -490,51 +633,41 @@ function animate() {
             fpControls.moveRight(speed);
         }
         
-        // Handle jumping
-        if (isJumping) {
-            jumpTime += delta;
+        // Get terrain height for camera position
+        const terrainY = getTerrainHeight(camera.position.x, camera.position.z);
+        player.lastGroundY = terrainY;
+        
+        // Base camera height when not jumping
+        const baseHeight = Math.max(terrainY, WATER_LEVEL + 0.5) + player.height + 5;
+        
+        // If player is jumping, adjust camera height to follow
+        if (player.isJumping && player.model) {
+            // Calculate how high above terrain the model is
+            const modelHeightAboveTerrain = player.model.position.y;
             
-            // Simple jump arc over 0.6 seconds
-            if (jumpTime < 0.6) {
-                // Parabolic jump curve
-                const jumpHeight = 15 * Math.sin(Math.PI * jumpTime / 0.6);
-                camera.position.y = player.lastGroundY + player.height + 5 + jumpHeight; // Added +5 for third-person
-            } else {
-                isJumping = false;
-            }
+            // Apply the same height offset to the camera
+            camera.position.y = player.model.position.y;
+        } else {
+            // Normal terrain following when not jumping
+            camera.position.y = baseHeight;
         }
         
-        // Get terrain height at current position if not jumping
-        if (!isJumping) {
-            const terrainY = getTerrainHeight(camera.position.x, camera.position.z);
-            player.lastGroundY = terrainY;
-            
-            // Make sure the player is at least at water level
-            const minHeight = Math.max(terrainY, WATER_LEVEL + 0.5);
-            
-            // Set player height above terrain
-            camera.position.y = minHeight + player.height + 5; // Added +5 for third-person
-            
-            // Check if player is underwater and update overlay
-            const underwaterOverlay = document.getElementById('underwater-overlay');
-            // Check if player's feet are in the water (standing on terrain below water level)
-            if (terrainY < WATER_LEVEL) {
-                // Player is underwater - show overlay with transition
-                if (underwaterOverlay) underwaterOverlay.style.opacity = '0.5';
-            } else {
-                // Player is above water - hide overlay with transition
-                if (underwaterOverlay) underwaterOverlay.style.opacity = '0';
-            }
+        // Check if player is underwater and update overlay
+        const underwaterOverlay = document.getElementById('underwater-overlay');
+        if (terrainY < WATER_LEVEL) {
+            if (underwaterOverlay) underwaterOverlay.style.opacity = '0.5';
+        } else {
+            if (underwaterOverlay) underwaterOverlay.style.opacity = '0';
         }
         
-        // Update squirrel model position - place it in front of the camera
+        // Update squirrel model position in the animate function
         if (player.model) {
             // Calculate direction vector
             const direction = new THREE.Vector3();
             camera.getWorldDirection(direction);
             
             // Position the model ahead of the camera
-            const modelDistance = 10; // Increased distance in front of camera
+            const modelDistance = 15; // Increased distance in front of camera
             const modelX = camera.position.x + direction.x * modelDistance;
             const modelZ = camera.position.z + direction.z * modelDistance;
             
@@ -542,11 +675,28 @@ function animate() {
             const modelTerrainY = getTerrainHeight(modelX, modelZ);
             const modelMinHeight = Math.max(modelTerrainY, WATER_LEVEL + 0.5);
             
-            // Set model position with added height offset
-            const modelHeightOffset = 2.5; // Use player height setting
+            // Set model X and Z position
             player.model.position.x = modelX;
             player.model.position.z = modelZ;
-            player.model.position.y = modelMinHeight + modelHeightOffset; // Added height offset
+            
+            // Handle Y position based on whether we're jumping or not
+            if (player.isJumping) {
+                // Apply gravity effect when jumping
+                player.model.position.y -= 0.8; // Apply gravity when jumping
+                
+                // Check if we've landed
+                if (player.model.position.y <= modelMinHeight + player.modelBaseHeight) {
+                    player.isJumping = false;
+                    player.model.position.y = modelMinHeight + player.modelBaseHeight + 1; // Increased height offset
+                    console.log("Landed!");
+                    
+                    // Swap back to regular squirrel model
+                    swapSquirrelModel(false);
+                }
+            } else {
+                // When not jumping, always keep model at exact terrain height plus offset
+                player.model.position.y = modelMinHeight + player.modelBaseHeight + 1; // Increased height offset
+            }
             
             // Make model face the direction of movement
             if (prevX !== camera.position.x || prevZ !== camera.position.z) {
@@ -555,16 +705,9 @@ function animate() {
                     camera.position.x - prevX,
                     camera.position.z - prevZ
                 );
-                // Apply rotation - add Math.PI to face forward direction
-                const targetRotation = angle; // Removed Math.PI to rotate 180 degrees
+                // Apply rotation
+                const targetRotation = angle;
                 player.model.rotation.y = targetRotation;
-            }
-            
-            // Debug output every few seconds
-            if (Math.floor(time) % 5 === 0 && Math.floor(time * 10) % 10 === 0) {
-                console.log("Camera position:", camera.position);
-                console.log("Squirrel position:", player.model.position);
-                console.log("Model visible:", player.model.visible);
             }
         }
     } else {
@@ -592,6 +735,25 @@ function animate() {
     
     // Update pigs using the imported function
     updatePigs(pigs, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
+    
+    // Update player shadow position
+    updatePlayerShadow();
+    
+    // Update compass direction
+    if (isLocked && fpControls) {
+        const compassArrow = document.getElementById('compass-arrow');
+        if (compassArrow) {
+            const camera = fpControls.getObject();
+            const direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            
+            // Calculate angle in degrees from camera direction
+            const angle = Math.atan2(direction.x, direction.z) * (180 / Math.PI);
+            
+            // Update compass arrow rotation
+            compassArrow.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+        }
+    }
     
     // Render scene
     renderer.render(scene, camera);
