@@ -13,11 +13,25 @@ export class NetworkManager {
             this.socket.close();
         }
 
-        // Determine websocket URL (localhost for dev, actual server for prod)
+        // Determine websocket URL based on deployment environment
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.hostname === 'localhost' ? 
-            `${window.location.hostname}:3000` : window.location.host;
-        const url = `${protocol}//${host}`;
+        let wsHost;
+        
+        // Check if we're on render.com
+        if (window.location.hostname.includes('render.com')) {
+            wsHost = window.location.host; // Use the same host for WebSocket on render.com
+        } 
+        // Check if we're on GitHub Pages
+        else if (window.location.hostname.includes('github.io')) {
+            wsHost = 'beachday.onrender.com'; // Hardcode the render.com WebSocket URL
+        }
+        // Local development
+        else {
+            wsHost = window.location.hostname === 'localhost' ? 
+                `${window.location.hostname}:3000` : window.location.host;
+        }
+        
+        const url = `${protocol}//${wsHost}`;
         
         console.log(`Connecting to WebSocket server at ${url}`);
         

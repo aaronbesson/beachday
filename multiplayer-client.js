@@ -7,8 +7,12 @@ class MultiplayerClient {
         this.connected = false;
         this.socket = null;
         
-        // URL to your WebSocket server
-        this.serverUrl = "ws://your-server-url.com"; // Update with your actual server URL
+        // Dynamically determine WebSocket URL based on current host
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        this.serverUrl = `${protocol}//${host}`;
+        
+        console.log(`WebSocket connecting to: ${this.serverUrl}`);
     }
     
     // Connect to the server

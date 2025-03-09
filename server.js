@@ -7,7 +7,8 @@ const { v4: uuidv4 } = require('uuid');
 // Add dotenv to load environment variables
 require('dotenv').config();
 
-const PORT = 3000;
+// Use PORT from environment variable for Render.com compatibility
+const PORT = process.env.PORT || 3000;
 const REPLICATE_API_KEY = process.env.REPLICATE_API_KEY;
 
 // Log API key presence (don't log the actual key)
