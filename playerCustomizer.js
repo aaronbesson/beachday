@@ -161,6 +161,11 @@ class PlayerCustomizer {
     setupEventListeners() {
         // Global event delegation
         document.body.addEventListener('click', (e) => {
+            // If the click is inside the customizer, prevent it from triggering game controls
+            if (e.target.closest('#player-customizer')) {
+                e.stopPropagation();
+            }
+            
             const target = e.target;
             
             // Close button
@@ -215,6 +220,18 @@ class PlayerCustomizer {
             if (target.id === 'use-model') {
                 this.replacePlayerModel();
                 this.hide();
+            }
+        });
+
+        // Prevent pointer lock when interacting with inputs
+        this.container.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+        });
+
+        // Prevent keyboard events from affecting game controls when typing in input
+        this.container.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') {
+                e.stopPropagation();
             }
         });
     }

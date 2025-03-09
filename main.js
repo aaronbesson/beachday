@@ -162,7 +162,15 @@ function setupPlayer() {
     console.log("Camera initialized at position:", fpControls.getObject().position);
     
     // Add click event to enable pointer lock
-    document.addEventListener('click', function() {
+    document.addEventListener('click', function(event) {
+        // Check if the click is on the customizer UI or any UI element
+        if (event.target.closest('#player-customizer') || 
+            event.target.closest('.action-button') ||
+            event.target.closest('.lightbox')) {
+            // Don't activate pointer lock for UI interactions
+            return;
+        }
+        
         console.log("Click detected, locking pointer");
         fpControls.lock();
     });
