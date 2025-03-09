@@ -254,6 +254,8 @@ button:disabled {
 /* Mobile responsiveness */
 @media (max-width: 480px) {
     #player-customizer {
+        position: absolute;
+        z-index: 1000;  
         width: calc(100% - 20px);
         top: 10px;
         left: 10px;

@@ -160,6 +160,15 @@ class PlayerCustomizer {
     }
     
     setupEventListeners() {
+        // Ensure the document is fully loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this._attachEventListeners());
+        } else {
+            this._attachEventListeners();
+        }
+    }
+    
+    _attachEventListeners() {
         // Global event delegation
         document.body.addEventListener('click', (e) => {
             // If the click is inside the customizer, prevent it from triggering game controls
@@ -176,9 +185,17 @@ class PlayerCustomizer {
             
             // Generate images button
             if (target.id === 'generate-images') {
-                const prompt = document.getElementById('image-prompt').value;
+                const promptInput = document.getElementById('image-prompt');
+                if (!promptInput) {
+                    console.error('Image prompt input not found in DOM');
+                    return;
+                }
+                
+                const prompt = promptInput.value;
                 if (prompt) {
                     this.generateImages(prompt);
+                } else {
+                    console.warn('No prompt value entered');
                 }
             }
             
