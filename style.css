@@ -24,7 +24,98 @@ canvas {
     left: 10px;
     color: white;
     text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
-    font-size: 14px;
+    font-size: 16px;
+    font-weight: bold;
     z-index: 100;
     pointer-events: none;
+}
+
+#controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-size: 14px;
+    transition: opacity 0.3s ease;
+}
+
+#controls:hover {
+    opacity: 1;
+}
+
+#controls > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+#player-instructions {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    z-index: 100;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-size: 14px;
+    transition: opacity 0.3s ease;
+    max-width: 250px;
+}
+
+#player-instructions h3 {
+    margin-bottom: 10px;
+    text-align: center;
+    font-size: 16px;
+    color: #89CFF0;
+}
+
+#player-instructions ul {
+    list-style-position: inside;
+    margin-bottom: 12px;
+}
+
+#player-instructions li {
+    margin-bottom: 5px;
+}
+
+#player-instructions p {
+    font-style: italic;
+    font-size: 12px;
+    text-align: center;
+    color: #ccc;
+}
+
+select, input[type="checkbox"] {
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+select {
+    width: 90px;
+}
+
+select option {
+    background-color: #333;
+    color: white;
+}
+
+label {
+    font-weight: 500;
 } 
