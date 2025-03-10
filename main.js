@@ -14,10 +14,10 @@ import { createTerrain } from './modules/createTerrain.js';
 import { createTrees } from './modules/createTrees.js';
 import { PlayerCustomizer } from './playerCustomizer.js';
 import { createSharks, updateSharks } from './modules/createSharks.js';
-
+import { createBears, updateBears } from './modules/createBear.js';
 // Main scene variables
 let scene, camera, renderer, controls, fpControls;
-let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos;
+let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos, bears;
 let clock = new THREE.Clock();
 
 // Player settings
@@ -56,6 +56,7 @@ const CLOUD_COUNT = 0;
 const BIRD_COUNT = 0;
 const PIG_COUNT = 5; // Number of pigs in the herd
 const HIPPO_COUNT = 2; // Number of hippos in the herd
+const BEAR_COUNT = 1; // Number of bears in the herd
 // Global variables for our application
 let playerCustomizer;
 
@@ -132,7 +133,10 @@ function init() {
     sharks = createSharks(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, SHARK_COUNT);
 
     // Create hippos from the module
-    hippos = createHippos(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, HIPPO_COUNT);     
+    hippos = createHippos(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, HIPPO_COUNT);    
+
+    // Create bears from the module
+    bears = createBears(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BEAR_COUNT);
     
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -170,8 +174,8 @@ function setupPlayer() {
         scene.add(player.model);
         
         // Scale model appropriately - adjust this value if needed
-        player.model.scale.set(4, 4, 4);
-        player.model.position.y += 5;
+        player.model.scale.set(8, 8, 8);
+        player.model.position.y += 10;
         
         // Set initial position - raised higher
         player.model.position.set(50, 50, 50); // Start in front of camera
@@ -225,7 +229,7 @@ function setupPlayer() {
         const camera = fpControls.getObject();
         const terrainY = getTerrainHeight(camera.position.x, camera.position.z);
         player.lastGroundY = terrainY;
-        camera.position.y = terrainY + player.height + 5; // Higher for third-person
+        camera.position.y = terrainY + player.height + 10; // Higher for third-person
         console.log("Initial terrain height:", terrainY, "Player Y:", camera.position.y);
         
         // Hide regular controls
@@ -263,10 +267,10 @@ function swapSquirrelModel(isJumping) {
             // Set appropriate scale based on which model is loaded
             if (isJumping) {
                 // Flying squirrel adjustments
-                player.model.scale.set(8, 6, 8);
+                player.model.scale.set(12, 8, 12);
             } else {
                 // Regular squirrel scale
-                player.model.scale.set(4, 4, 4);
+                player.model.scale.set(8, 8, 8);
             }
             
             // Apply position and rotation
@@ -698,7 +702,7 @@ function animate() {
                 // Check if we've landed
                 if (player.model.position.y <= modelMinHeight + player.modelBaseHeight) {
                     player.isJumping = false;
-                    player.model.position.y = modelMinHeight + player.modelBaseHeight + 1; // Increased height offset
+                    player.model.position.y = modelMinHeight + player.modelBaseHeight + 2; // Increased height offset
                     console.log("Landed!");
                     
                     // Swap back to regular squirrel model
@@ -706,7 +710,7 @@ function animate() {
                 }
             } else {
                 // When not jumping, always keep model at exact terrain height plus offset
-                player.model.position.y = modelMinHeight + player.modelBaseHeight + 1; // Increased height offset
+                player.model.position.y = modelMinHeight + player.modelBaseHeight + 2; // Increased height offset
             }
             
             // Make model face the direction of movement
@@ -752,6 +756,9 @@ function animate() {
 
     // Update hippos using the imported function
     updateHippos(hippos, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
+
+    // Update bears using the imported function
+    updateBears(bears, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
     
     // Update player shadow position
     updatePlayerShadow();
