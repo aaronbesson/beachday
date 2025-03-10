@@ -41,7 +41,9 @@ let player = {
     isJumping: false,
     jumpTime: 0.8,
     modelBaseHeight: 1.5,
-    shadow: null
+    shadow: null,
+    flyingModel: null,
+    regularModel: null
 };
 
 // Movement control state
@@ -222,8 +224,11 @@ function setupPlayer() {
         player.model.position.set(houseX + 20, houseY + 10, houseZ + 20);
         createPlayerShadow();
         playerCustomizer = new PlayerCustomizer(scene, player);
+        
+        // Preload both squirrel models
+        preloadSquirrelModels();
     });
-
+    
     // **Modified: Click event now triggers shooting when locked**
     document.addEventListener('click', function(event) {
         if (event.target.closest('#player-customizer') || 
@@ -257,6 +262,80 @@ function setupPlayer() {
         if (crosshair) crosshair.style.opacity = '0';
         if (controls) controls.enabled = true;
     });
+}
+
+// Preload both squirrel models for quick swapping
+function preloadSquirrelModels() {
+    const loader = new GLTFLoader();
+    
+    // Load flying squirrel model
+    loader.load('./assets/flying-squirrel.glb', (gltf) => {
+        player.flyingModel = gltf.scene;
+        player.flyingModel.visible = false;
+        player.flyingModel.scale.set(8, 8, 8);
+        scene.add(player.flyingModel);
+        
+        // Copy position from main model if available
+        if (player.model) {
+            player.flyingModel.position.copy(player.model.position);
+            player.flyingModel.rotation.copy(player.model.rotation);
+        }
+        console.log("Flying squirrel model preloaded");
+    });
+    
+    // Load regular squirrel model
+    loader.load('./assets/squirrel.glb', (gltf) => {
+        player.regularModel = gltf.scene;
+        // Make this visible as it's the default
+        player.regularModel.visible = true;
+        player.regularModel.scale.set(8, 8, 8);
+        scene.add(player.regularModel);
+        
+        // Copy position from main model if available
+        if (player.model) {
+            player.regularModel.position.copy(player.model.position);
+            player.regularModel.rotation.copy(player.model.rotation);
+            
+            // Set the regular model as the player model
+            // and remove the original model which is redundant now
+            scene.remove(player.model);
+            player.model = player.regularModel;
+        }
+        console.log("Regular squirrel model preloaded");
+    });
+}
+
+// Function to swap between regular and flying squirrel models
+function swapSquirrelModel(isFlying) {
+    if (!player.flyingModel || !player.regularModel) {
+        console.log("Models not yet loaded, can't swap");
+        return;
+    }
+    
+    // Get current position and rotation from current model
+    const currentModel = player.model;
+    if (!currentModel) {
+        console.log("No current model to swap from");
+        return;
+    }
+    
+    // Update positions of both models to current position
+    const targetModel = isFlying ? player.flyingModel : player.regularModel;
+    
+    targetModel.position.copy(currentModel.position);
+    targetModel.rotation.copy(currentModel.rotation);
+    
+    // Switch visibility
+    currentModel.visible = false;
+    targetModel.visible = true;
+    
+    // Update the player.model reference
+    player.model = targetModel;
+    
+    console.log(`Swapped to ${isFlying ? 'flying' : 'regular'} squirrel model`);
+    
+    // Update shadow
+    updatePlayerShadow();
 }
 
 function createPlayerShadow() {
