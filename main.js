@@ -556,7 +556,7 @@ function createWater() {
     );
     
     water.rotation.x = -Math.PI / 2;
-    water.position.y = WATER_LEVEL + 10;
+    water.position.y = WATER_LEVEL + 12;
 
     water.material.side = THREE.DoubleSide;
     
