@@ -88,9 +88,34 @@ export function createWolf(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, W
     return wolves;
 }
 
-export function updateWolf(wolves, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight) {
+// Add these at the top of the file with other state variables
+let playerTrail = [];
+let isChasing = false;
+let chaseStartTime = 0;
+const CHASE_DURATION = 10000; // 10 seconds in milliseconds
+const CHASE_TRIGGER_DISTANCE = 20;
+
+// Wolf parameters
+const WOLF_CHASE_DISTANCE = 200; // Changed back to 20 to match the visual indicator
+let wolfSound = null;
+let lastGrowlTime = 0;
+const GROWL_COOLDOWN = 2000; // 2 seconds cooldown between growls
+
+// Initialize wolf sound
+function initWolfSound() {
+    if (!wolfSound) {
+        wolfSound = new Audio('/assets/soundfx/wolf.mp3');
+        wolfSound.volume = 0.5; // Set volume to 50%
+    }
+}
+
+export function updateWolf(wolves, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, playerPosition) {
     if (!wolves) return;
     
+    // Initialize sound if not done yet
+    initWolfSound();
+
+    // Original wolf movement logic
     wolves.children.forEach(wolf => {
         const data = wolf.userData;
         
@@ -183,4 +208,59 @@ export function updateWolf(wolves, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTe
         // Add slight bobbing for running animation
         wolf.position.y += Math.sin(time * data.speed * 10) * 0.5;
     });
+
+    // SIMPLE PROXIMITY DETECTION
+    if (playerPosition) {
+        // Check distance to each wolf
+        let playerNearWolf = false;
+        let closestDistance = Infinity;
+        
+        wolves.children.forEach(wolf => {
+            const distance = new THREE.Vector3(
+                wolf.position.x, 
+                wolf.position.y,
+                wolf.position.z
+            ).distanceTo(new THREE.Vector3(
+                playerPosition.x,
+                playerPosition.y,
+                playerPosition.z
+            ));
+            
+            if (distance < closestDistance) {
+                closestDistance = distance;
+            }
+            
+            if (distance < WOLF_CHASE_DISTANCE) {
+                playerNearWolf = true;
+            }
+        });
+        
+        // Debug logging
+        if (Math.random() < 0.01) {
+            console.log("Closest wolf distance:", closestDistance, "Player near wolf:", playerNearWolf);
+        }
+        
+        // Show alert and play sound if player is near wolf
+        const wolfAlert = document.getElementById('wolf-alert');
+        if (wolfAlert && playerNearWolf) {
+            // Visual alert
+            wolfAlert.style.display = 'block';
+            setTimeout(() => {
+                wolfAlert.style.display = 'none';
+            }, 300);
+
+            // Sound alert (with cooldown)
+            const currentTime = Date.now();
+            if (currentTime - lastGrowlTime > GROWL_COOLDOWN) {
+                if (wolfSound) {
+                    wolfSound.currentTime = 0; // Reset sound to start
+                    wolfSound.play().catch(e => console.log("Error playing wolf sound:", e));
+                    lastGrowlTime = currentTime;
+                }
+                console.log("WOLF PROXIMITY ALERT! Distance:", closestDistance);
+            }
+        } else if (wolfAlert) {
+            wolfAlert.style.display = 'none';
+        }
+    }
 }

@@ -33,7 +33,7 @@ export function createTerrain(
         // const noise4 = simplex.noise(x * 0.2, z * 0.2) * 0.05;
         // const noise5 = simplex.noise(x * 0.4, z * 0.4) * 0.025;
         
-        let height = (noise1) * 200;
+        let height = (noise1) * 140;
         
         // Smoother transition for underwater areas
         if (height < WATER_LEVEL + 2) {

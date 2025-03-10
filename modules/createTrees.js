@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getHousePosition, getHouseFootprint } from './createHouse.js';
 
 export function createTrees(
     scene,
@@ -24,6 +25,22 @@ export function createTrees(
         if (y > WATER_LEVEL + 5) {
             potentialPositions.push(new THREE.Vector3(x, y, z));
         }
+    }
+    
+    // Add function to check if position is too close to house
+    function isTooCloseToHouse(position) {
+        const housePos = getHousePosition();
+        const houseSize = getHouseFootprint()?.size || 0;
+        
+        if (!housePos) return false;
+        
+        // Calculate distance from tree to house center
+        const dx = position.x - housePos.x;
+        const dz = position.z - housePos.z;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        
+        // Return true if too close (within house footprint + margin)
+        return distance < houseSize;
     }
     
     // Function to create a high-poly tree
@@ -104,11 +121,17 @@ export function createTrees(
         return treeGroup;
     }
     
-    // Create trees at random positions
+    // Modify the tree creation loop
     for (let i = 0; i < Math.min(TREE_COUNT, potentialPositions.length); i++) {
-        // Pick a random position from potential positions
         const randomIndex = Math.floor(Math.random() * potentialPositions.length);
         const position = potentialPositions[randomIndex];
+        
+        // Skip this position if it's too close to the house
+        if (isTooCloseToHouse(position)) {
+            potentialPositions.splice(randomIndex, 1);
+            i--; // Try again with next position
+            continue;
+        }
         
         // Remove the selected position to avoid placing multiple trees at the same spot
         potentialPositions.splice(randomIndex, 1);

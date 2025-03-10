@@ -50,7 +50,7 @@ let terrainGeometry;
 
 // Parameters
 const TERRAIN_SIZE = 2400; // small for testing
-const TERRAIN_SEGMENTS = 48;
+const TERRAIN_SEGMENTS = 50;
 const WATER_LEVEL = 8;
 const SHARK_COUNT = 12;
 const TREE_COUNT = 360;
@@ -113,14 +113,17 @@ function init() {
     createSky();
     createLighting();
     
-    // Create terrain from the module
+    // Create terrain first
     const terrainResult = createTerrain(scene, TERRAIN_SIZE, TERRAIN_SEGMENTS, WATER_LEVEL);
     terrain = terrainResult.terrain;
     terrainGeometry = terrainResult.geometry;
     
     createWater();
     
-    // Create trees from the module
+    // Create house BEFORE trees
+    house = createHouse(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
+    
+    // Create trees AFTER house
     trees = createTrees(scene, terrain, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, TREE_COUNT);
     
     // Create clouds from the module
@@ -160,9 +163,6 @@ function init() {
     
     // Create crosshair element
     createCrosshair();
-    
-    // Create house
-    house = createHouse(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
     
     // Start animation loop
     animate();
@@ -755,7 +755,7 @@ function animate() {
     updateBears(bears, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
 
     // Update wolves using the imported function
-    updateWolf(wolf, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
+    updateWolf(wolf, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, camera.position);
     
     // Update player shadow position
     updatePlayerShadow();
