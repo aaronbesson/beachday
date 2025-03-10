@@ -9,13 +9,15 @@ import { Water } from 'three/addons/objects/Water.js';
 import { createBirds, updateBirds } from './modules/createBirds.js';
 import { createClouds, updateClouds } from './modules/createClouds.js';
 import { createPigs, updatePigs } from './modules/createPigs.js';
+import { createHippos, updateHippos } from './modules/createHippos.js';
 import { createTerrain } from './modules/createTerrain.js';
 import { createTrees } from './modules/createTrees.js';
 import { PlayerCustomizer } from './playerCustomizer.js';
+import { createSharks, updateSharks } from './modules/createSharks.js';
 
 // Main scene variables
 let scene, camera, renderer, controls, fpControls;
-let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees;
+let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos;
 let clock = new THREE.Clock();
 
 // Player settings
@@ -46,13 +48,14 @@ let terrainGeometry;
 const TERRAIN_SIZE = 3000; // small for testing
 const TERRAIN_SEGMENTS = 124;
 const TERRAIN_HEIGHT = 57;
-const WATER_LEVEL = 2;
+const WATER_LEVEL = 8;
 const SUN_HEIGHT = 400;
-const TREE_COUNT = 500;
-const CLOUD_COUNT = 20;
-const BIRD_COUNT = 2;
-const PIG_COUNT = 4; // Number of pigs in the herd
-
+const SHARK_COUNT = 4;
+const TREE_COUNT = 400;
+const CLOUD_COUNT = 0;
+const BIRD_COUNT = 0;
+const PIG_COUNT = 5; // Number of pigs in the herd
+const HIPPO_COUNT = 2; // Number of hippos in the herd
 // Global variables for our application
 let playerCustomizer;
 
@@ -124,6 +127,12 @@ function init() {
     
     // Create pigs from the module
     pigs = createPigs(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, PIG_COUNT);
+
+    // Create sharks from the module
+    sharks = createSharks(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, SHARK_COUNT);
+
+    // Create hippos from the module
+    hippos = createHippos(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, HIPPO_COUNT);     
     
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -547,7 +556,7 @@ function createWater() {
     );
     
     water.rotation.x = -Math.PI / 2;
-    water.position.y = WATER_LEVEL + 6;
+    water.position.y = WATER_LEVEL + 10;
 
     water.material.side = THREE.DoubleSide;
     
@@ -737,6 +746,12 @@ function animate() {
     
     // Update pigs using the imported function
     updatePigs(pigs, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
+
+    // Update sharks using the imported function
+    updateSharks(sharks, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
+
+    // Update hippos using the imported function
+    updateHippos(hippos, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
     
     // Update player shadow position
     updatePlayerShadow();
