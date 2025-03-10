@@ -100,7 +100,7 @@ const CHASE_DELAY = 1000; // 1 second delay before chase starts
 // Wolf parameters
 const WOLF_CHASE_DISTANCE = 200; // Distance at which wolf notices player
 const WOLF_CHASE_SPEED = 7.0; // Increased from 1.5 to 15.0 (10x faster)
-const WOLF_Y_ROTATION_OFFSET = Math.PI * -0.5; // Adjust this value to rotate the wolf (currently 90 degrees)
+const WOLF_Y_ROTATION_OFFSET = -Math.PI * -0.5; // Adjust this value to rotate the wolf (currently 90 degrees)
 let wolfSound = null;
 let lastGrowlTime = 0;
 const GROWL_COOLDOWN = 2000; // 2 seconds cooldown between growls

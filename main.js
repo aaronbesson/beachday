@@ -15,12 +15,12 @@ import { createTrees } from './modules/createTrees.js';
 import { PlayerCustomizer } from './playerCustomizer.js';
 import { createSharks, updateSharks } from './modules/createSharks.js';
 import { createBears, updateBears } from './modules/createBears.js';
-import { createWolf, updateWolf } from './modules/createWolf.js';
+import { createLevelBoss, updateLevelBoss } from './modules/createLevelBoss.js';
 import { createHouse, updateHouse } from './modules/createHouse.js';
 
 // Main scene variables
 let scene, camera, renderer, controls, fpControls;
-let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos, bears, wolf, house;
+let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos, bears, levelBoss, house;
 let clock = new THREE.Clock();
 let crosshair; // Add crosshair element reference
 
@@ -59,7 +59,7 @@ const BIRD_COUNT = 0;
 const PIG_COUNT = 24; // Number of pigs in the herd
 const HIPPO_COUNT = 0; // Number of hippos in the herd
 const BEAR_COUNT = 1; // Number of bears in the herd
-const WOLF_COUNT = 1; // Number of wolves in the herd
+const LEVEL_BOSS_COUNT = 1; // Number of level bosses in the herd
 // Global variables for our application
 let playerCustomizer;
 
@@ -213,8 +213,15 @@ function init() {
     // Create bears from the module
     bears = createBears(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BEAR_COUNT);
 
-    // Create wolves from the module
-    wolf = createWolf(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, WOLF_COUNT);
+    // Create level boss from the module (Wolf is the default)
+    createLevelBoss(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, 'Wolf', LEVEL_BOSS_COUNT)
+        .then(boss => {
+            levelBoss = boss;
+            console.log('Level boss created successfully');
+        })
+        .catch(error => {
+            console.error('Error creating level boss:', error);
+        });
     
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -822,8 +829,8 @@ function animate() {
     // Update bears using the imported function
     updateBears(bears, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, camera.position);
 
-    // Update wolves using the imported function
-    updateWolf(wolf, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, camera.position);
+    // Update level boss using the imported function
+    updateLevelBoss(levelBoss, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, camera.position);
     
     // Update player shadow position
     updatePlayerShadow();
