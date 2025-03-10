@@ -16,10 +16,13 @@ import { PlayerCustomizer } from './playerCustomizer.js';
 import { createSharks, updateSharks } from './modules/createSharks.js';
 import { createBears, updateBears } from './modules/createBear.js';
 import { createWolf, updateWolf } from './modules/createWolf.js';
+import { createHouse, updateHouse } from './modules/createHouse.js';
+
 // Main scene variables
 let scene, camera, renderer, controls, fpControls;
-let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos, bears, wolf;
+let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos, bears, wolf, house;
 let clock = new THREE.Clock();
+let crosshair; // Add crosshair element reference
 
 // Player settings
 let player = {
@@ -155,58 +158,46 @@ function init() {
     console.log("WASD or Arrow Keys to move, Space to jump");
     console.log("Click anywhere to enter first-person mode, ESC to exit");
     
+    // Create crosshair element
+    createCrosshair();
+    
+    // Create house
+    house = createHouse(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
+    
     // Start animation loop
     animate();
 }
 
 // Set up player and controls
 function setupPlayer() {
-    // Load the squirrel model
-    const loader = new GLTFLoader();
+    // Calculate house position (matching createHouse.js coordinates)
+    const houseX = -TERRAIN_SIZE * 0.4;
+    const houseZ = -TERRAIN_SIZE * 0.4;
+    const houseY = getTerrainHeight(houseX, houseZ) + 10;
 
-    // load flying squirrel model if player is jumping
-    const flyingSquirrelModel = './assets/flying-squirrel.glb';
-    const regularSquirrelModel = './assets/squirrel.glb';
-    
-    
-    loader.load(player.isJumping ? flyingSquirrelModel : regularSquirrelModel, (gltf) => { 
-        console.log("Squirrel model loaded successfully", gltf);
-        player.model = gltf.scene;
-        
-        // Add the model to the scene
-        scene.add(player.model);
-        
-        // Scale model appropriately - adjust this value if needed
-        player.model.scale.set(8, 8, 8);
-        player.model.position.y += 10;
-        
-        // Set initial position - raised higher
-        player.model.position.set(0, 0, 0); // Start in front of camera
-        
-        // Create shadow for the player
-        createPlayerShadow();
-        
-        // Initialize player customizer after model is loaded
-        playerCustomizer = new PlayerCustomizer(scene, player);
-    }, 
-    // Progress callback
-    (xhr) => {
-        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-    }, 
-    // Error callback
-    (error) => {
-        console.error("Error loading squirrel model:", error);
-    });
-
-    // Create pointer lock controls (now for third-person)
+    // Create pointer lock controls first
     fpControls = new PointerLockControls(camera, document.body);
     scene.add(fpControls.getObject());
     
-    // Position the camera higher and behind for third-person view
-    camera.position.set(12, 12, 12); // Higher and further behind
-    fpControls.getObject().position.set(12, 12, 12); // Match camera position
-    console.log("Camera initialized at position:", fpControls.getObject().position);
+    // Now set initial camera and controls position
+    camera.position.set(houseX + 20, houseY + 24, houseZ + 20);
+    fpControls.getObject().position.set(houseX + 20, houseY + 24, houseZ + 20);
     
+    // Rest of the function remains the same
+    const loader = new GLTFLoader();
+    const flyingSquirrelModel = './assets/flying-squirrel.glb';
+    const regularSquirrelModel = './assets/squirrel.glb';
+    
+    loader.load(player.isJumping ? flyingSquirrelModel : regularSquirrelModel, (gltf) => {
+        console.log("Squirrel model loaded successfully", gltf);
+        player.model = gltf.scene;
+        scene.add(player.model);
+        player.model.scale.set(8, 8, 8);
+        player.model.position.set(houseX + 20, houseY + 10, houseZ + 20);
+        createPlayerShadow();
+        playerCustomizer = new PlayerCustomizer(scene, player);
+    });
+
     // Add click event to enable pointer lock
     document.addEventListener('click', function(event) {
         // Check if the click is on the customizer UI or any UI element
@@ -226,6 +217,9 @@ function setupPlayer() {
         isLocked = true;
         console.log("Pointer lock enabled - third person active");
         
+        // Show crosshair when locked
+        if (crosshair) crosshair.style.opacity = '1';
+        
         // Set initial height above terrain
         const camera = fpControls.getObject();
         const terrainY = getTerrainHeight(camera.position.x, camera.position.z);
@@ -238,6 +232,10 @@ function setupPlayer() {
     fpControls.addEventListener('unlock', function() {
         isLocked = false;
         console.log("Pointer lock disabled - returning to orbit mode");
+        
+        // Hide crosshair when unlocked
+        if (crosshair) crosshair.style.opacity = '0';
+        
         // Re-enable orbit controls
         if (controls) controls.enabled = true;
     });
@@ -778,8 +776,49 @@ function animate() {
         }
     }
     
+    // Update house
+    updateHouse(house, time, delta);
+    
     // Render scene
     renderer.render(scene, camera);
+}
+
+// Create the crosshair element
+function createCrosshair() {
+    crosshair = document.createElement('div');
+    crosshair.id = 'crosshair';
+    crosshair.style.position = 'absolute';
+    crosshair.style.top = '50%';
+    crosshair.style.left = '50%';
+    crosshair.style.width = '20px';
+    crosshair.style.height = '20px';
+    crosshair.style.transform = 'translate(-50%, -50%)';
+    crosshair.style.pointerEvents = 'none'; // Make it non-interactive
+    crosshair.style.opacity = '0'; // Hidden by default
+    
+    // Create crosshair lines (plus shape)
+    const verticalLine = document.createElement('div');
+    verticalLine.style.position = 'absolute';
+    verticalLine.style.top = '0';
+    verticalLine.style.left = '50%';
+    verticalLine.style.width = '2px';
+    verticalLine.style.height = '100%';
+    verticalLine.style.backgroundColor = 'white';
+    verticalLine.style.transform = 'translateX(-50%)';
+    
+    const horizontalLine = document.createElement('div');
+    horizontalLine.style.position = 'absolute';
+    horizontalLine.style.top = '50%';
+    horizontalLine.style.left = '0';
+    horizontalLine.style.width = '100%';
+    horizontalLine.style.height = '2px';
+    horizontalLine.style.backgroundColor = 'white';
+    horizontalLine.style.transform = 'translateY(-50%)';
+    
+    crosshair.appendChild(verticalLine);
+    crosshair.appendChild(horizontalLine);
+    
+    document.body.appendChild(crosshair);
 }
 
 // Start the application
