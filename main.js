@@ -541,7 +541,7 @@ function animate() {
         if (player.isJumping && player.model) {
             camera.position.y = player.model.position.y;
         } else {
-            camera.position.y = baseHeight;
+            camera.position.y = baseHeight + 10;
         }
         
         const underwaterOverlay = document.getElementById('underwater-overlay');
@@ -674,7 +674,7 @@ function createCrosshair() {
     horizontalLine.style.width = '100%';
     horizontalLine.style.height = '1px';
     horizontalLine.style.backgroundColor = 'black';
-    horizontalLine.style.transform = 'translateY(-50%)';
+    horizontalLine.style.transform = 'translateY(-50%)'; 
 
     crosshair.appendChild(verticalLine);
     crosshair.appendChild(horizontalLine);
