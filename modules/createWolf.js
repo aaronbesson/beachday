@@ -92,11 +92,15 @@ export function createWolf(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, W
 let playerTrail = [];
 let isChasing = false;
 let chaseStartTime = 0;
+let chaseDelayTimer = null;
 const CHASE_DURATION = 10000; // 10 seconds in milliseconds
 const CHASE_TRIGGER_DISTANCE = 20;
+const CHASE_DELAY = 1000; // 1 second delay before chase starts
 
 // Wolf parameters
-const WOLF_CHASE_DISTANCE = 200; // Changed back to 20 to match the visual indicator
+const WOLF_CHASE_DISTANCE = 200; // Distance at which wolf notices player
+const WOLF_CHASE_SPEED = 7.0; // Increased from 1.5 to 15.0 (10x faster)
+const WOLF_Y_ROTATION_OFFSET = Math.PI * -0.5; // Adjust this value to rotate the wolf (currently 90 degrees)
 let wolfSound = null;
 let lastGrowlTime = 0;
 const GROWL_COOLDOWN = 2000; // 2 seconds cooldown between growls
@@ -105,7 +109,7 @@ const GROWL_COOLDOWN = 2000; // 2 seconds cooldown between growls
 function initWolfSound() {
     if (!wolfSound) {
         wolfSound = new Audio('/assets/soundfx/wolf.mp3');
-        wolfSound.volume = 0.5; // Set volume to 50%
+        wolfSound.volume = 0.5;
     }
 }
 
@@ -115,105 +119,12 @@ export function updateWolf(wolves, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTe
     // Initialize sound if not done yet
     initWolfSound();
 
-    // Original wolf movement logic
-    wolves.children.forEach(wolf => {
-        const data = wolf.userData;
-        
-        // Store previous position for movement vector
-        const prevX = wolf.position.x;
-        const prevZ = wolf.position.z;
-        
-        // Occasionally change movement parameters for more natural roaming
-        if (Math.random() < 0.005) {
-            data.speed = 0.3 + Math.random() * 2;
-            data.angleChange = (Math.random() - 0.5) * 0.05;
-        }
-        
-        // Add some wandering behavior by changing angle gradually
-        if (!data.angleChange) data.angleChange = (Math.random() - 0.5) * 0.02;
-        data.angle += data.angleChange;
-        
-        // Update wolf position with more freedom
-        data.angle += data.speed * 0.01;
-        
-        // Occasionally change radius to expand exploration area
-        if (Math.random() < 0.01) {
-            data.radius = 50 + Math.random() * 200;
-        }
-        
-        // Calculate new position using circular motion with more variation
-        const radius = data.radius + Math.sin(time * 0.5) * 30;
-        const newX = wolf.position.x + Math.cos(data.angle) * data.speed;
-        const newZ = wolf.position.z + Math.sin(data.angle) * data.speed;
-        
-        // Check if new position is in water or out of bounds
-        const terrainY = getTerrainHeight(newX, newZ);
-        const outOfBounds = Math.abs(newX) > TERRAIN_SIZE/2 * 0.8 || Math.abs(newZ) > TERRAIN_SIZE/2 * 0.8;
-        
-        if (terrainY < WATER_LEVEL + 1 || outOfBounds) {
-            // If we'd go in water or out of bounds, change direction
-            data.angle += Math.PI + (Math.random() - 0.5) * 1.0; // Flip with some randomness
-            data.radius = Math.max(50, data.radius * 0.8); // Reduce radius to move inward
-            
-            // Keep existing position this frame
-            wolf.position.x = prevX;
-            wolf.position.z = prevZ;
-        } else {
-            // Safe to move
-            wolf.position.x = newX;
-            wolf.position.z = newZ;
-        }
-        
-        // Calculate movement direction vector
-        const moveX = wolf.position.x - prevX;
-        const moveZ = wolf.position.z - prevZ;
-        const moveMagnitude = Math.sqrt(moveX * moveX + moveZ * moveZ);
-        
-        if (moveMagnitude > 0.001) {
-            const dirX = moveX / moveMagnitude;
-            const dirZ = moveZ / moveMagnitude;
-            
-            // Sample terrain height at current position
-            const currentY = getTerrainHeight(wolf.position.x, wolf.position.z);
-            
-            // Sample terrain height at a point slightly ahead in movement direction
-            const aheadDist = 10;  // Sample 10 units ahead for slope calculation
-            const aheadX = wolf.position.x + dirX * aheadDist;
-            const aheadZ = wolf.position.z + dirZ * aheadDist;
-            const aheadY = getTerrainHeight(aheadX, aheadZ);
-            
-            // Calculate slope angle
-            const terrainAngle = Math.atan2(aheadY - currentY, aheadDist);
-            
-            // Make wolf follow terrain height with a slight offset
-            const terrainY = currentY;
-            data.lastTerrainY = terrainY;
-            wolf.position.y = Math.max(terrainY, WATER_LEVEL + 1) + 2;
-            
-            // Make wolf face movement direction (yaw/horizontal rotation)
-            const angle = Math.atan2(moveX, moveZ);
-            wolf.rotation.y = angle;
-            
-            // Apply pitch/vertical rotation to the model container for terrain slope
-            if (data.modelContainer) {
-                // Apply terrain-following tilt with smoothing
-                data.modelContainer.rotation.y = terrainAngle + 1;
-                
-                // Optional: add a roll component for more natural movement on slopes
-                const lateralSlope = Math.sin(data.angle * 5) * 0.4;
-                data.modelContainer.rotation.z = lateralSlope;
-            }
-        }
-        
-        // Add slight bobbing for running animation
-        wolf.position.y += Math.sin(time * data.speed * 10) * 0.5;
-    });
-
-    // SIMPLE PROXIMITY DETECTION
+    // PROXIMITY AND CHASE DETECTION
     if (playerPosition) {
         // Check distance to each wolf
         let playerNearWolf = false;
         let closestDistance = Infinity;
+        let closestWolf = null;
         
         wolves.children.forEach(wolf => {
             const distance = new THREE.Vector3(
@@ -228,32 +139,47 @@ export function updateWolf(wolves, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTe
             
             if (distance < closestDistance) {
                 closestDistance = distance;
+                closestWolf = wolf;
             }
             
             if (distance < WOLF_CHASE_DISTANCE) {
                 playerNearWolf = true;
             }
         });
-        
-        // Debug logging
-        if (Math.random() < 0.01) {
-            console.log("Closest wolf distance:", closestDistance, "Player near wolf:", playerNearWolf);
+
+        // Handle chase state changes
+        if (playerNearWolf && !isChasing && !chaseDelayTimer) {
+            // Start the chase delay timer
+            chaseDelayTimer = setTimeout(() => {
+                isChasing = true;
+                chaseStartTime = Date.now();
+                console.log("WOLF CHASE STARTED!");
+                chaseDelayTimer = null;
+            }, CHASE_DELAY);
+        } else if (!playerNearWolf && chaseDelayTimer) {
+            // Cancel chase if player moves away during delay
+            clearTimeout(chaseDelayTimer);
+            chaseDelayTimer = null;
         }
-        
-        // Show alert and play sound if player is near wolf
+
+        // Check if chase should end
+        if (isChasing && Date.now() - chaseStartTime > CHASE_DURATION) {
+            isChasing = false;
+            console.log("WOLF CHASE ENDED!");
+        }
+
+        // Visual and sound alerts
         const wolfAlert = document.getElementById('wolf-alert');
         if (wolfAlert && playerNearWolf) {
-            // Visual alert
             wolfAlert.style.display = 'block';
             setTimeout(() => {
                 wolfAlert.style.display = 'none';
             }, 300);
 
-            // Sound alert (with cooldown)
             const currentTime = Date.now();
             if (currentTime - lastGrowlTime > GROWL_COOLDOWN) {
                 if (wolfSound) {
-                    wolfSound.currentTime = 0; // Reset sound to start
+                    wolfSound.currentTime = 0;
                     wolfSound.play().catch(e => console.log("Error playing wolf sound:", e));
                     lastGrowlTime = currentTime;
                 }
@@ -263,4 +189,88 @@ export function updateWolf(wolves, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTe
             wolfAlert.style.display = 'none';
         }
     }
+
+    // Wolf movement logic
+    wolves.children.forEach(wolf => {
+        const data = wolf.userData;
+        
+        if (isChasing && playerPosition) {
+            // CHASE BEHAVIOR
+            const directionToPlayer = new THREE.Vector3(
+                playerPosition.x - wolf.position.x,
+                0,
+                playerPosition.z - wolf.position.z
+            ).normalize();
+
+            // Move towards player at increased speed
+            wolf.position.x += directionToPlayer.x * WOLF_CHASE_SPEED;
+            wolf.position.z += directionToPlayer.z * WOLF_CHASE_SPEED;
+
+            // Update terrain height
+            const terrainY = getTerrainHeight(wolf.position.x, wolf.position.z);
+            wolf.position.y = Math.max(terrainY, WATER_LEVEL + 1) + 2;
+
+            // Reset rotation and then make wolf face player with offset
+            wolf.rotation.set(0, 0, 0);
+            wolf.lookAt(playerPosition.x, wolf.position.y, playerPosition.z);
+            wolf.rotation.y += WOLF_Y_ROTATION_OFFSET;
+
+            // Add aggressive bobbing during chase
+            wolf.position.y += Math.sin(Date.now() * 0.01) * 1.0;
+
+        } else {
+            // NORMAL WANDERING BEHAVIOR
+            // Store previous position for movement vector
+            const prevX = wolf.position.x;
+            const prevZ = wolf.position.z;
+            
+            // Occasionally change movement parameters for natural roaming
+            if (Math.random() < 0.005) {
+                data.speed = 0.3 + Math.random() * 2;
+                data.angleChange = (Math.random() - 0.5) * 0.05;
+            }
+            
+            // Add wandering behavior
+            if (!data.angleChange) data.angleChange = (Math.random() - 0.5) * 0.02;
+            data.angle += data.angleChange;
+            data.angle += data.speed * 0.01;
+            
+            // Update radius occasionally
+            if (Math.random() < 0.01) {
+                data.radius = 50 + Math.random() * 200;
+            }
+            
+            // Calculate new position
+            const radius = data.radius + Math.sin(time * 0.5) * 30;
+            const newX = wolf.position.x + Math.cos(data.angle) * data.speed;
+            const newZ = wolf.position.z + Math.sin(data.angle) * data.speed;
+            
+            // Check boundaries
+            const terrainY = getTerrainHeight(newX, newZ);
+            const outOfBounds = Math.abs(newX) > TERRAIN_SIZE/2 * 0.8 || Math.abs(newZ) > TERRAIN_SIZE/2 * 0.8;
+            
+            if (terrainY < WATER_LEVEL + 1 || outOfBounds) {
+                data.angle += Math.PI + (Math.random() - 0.5) * 1.0;
+                data.radius = Math.max(50, data.radius * 0.8);
+                wolf.position.x = prevX;
+                wolf.position.z = prevZ;
+            } else {
+                wolf.position.x = newX;
+                wolf.position.z = newZ;
+                wolf.position.y = Math.max(terrainY, WATER_LEVEL + 1) + 2;
+            }
+            
+            // Normal movement animations
+            const moveX = wolf.position.x - prevX;
+            const moveZ = wolf.position.z - prevZ;
+            if (Math.abs(moveX) > 0.001 || Math.abs(moveZ) > 0.001) {
+                // Reset rotation before applying new one
+                wolf.rotation.set(0, 0, 0);
+                wolf.rotation.y = Math.atan2(moveX, moveZ) + WOLF_Y_ROTATION_OFFSET;
+            }
+            
+            // Normal bobbing animation
+            wolf.position.y += Math.sin(time * data.speed * 10) * 0.5;
+        }
+    });
 }
