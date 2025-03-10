@@ -1,145 +1,147 @@
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-body, html {
-    overflow: hidden;
-    width: 100%;
-    height: 100%;
-    font-family: Arial, sans-serif;
-    background-color: #000;
+body,
+html {
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  font-family: Arial, sans-serif;
+  background-color: #000;
 }
 
 canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 #info {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    color: white;
-    text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
-    font-size: 16px;
-    font-weight: bold;
-    z-index: 100;
-    pointer-events: none;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: white;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+  font-size: 16px;
+  font-weight: bold;
+  z-index: 100;
+  pointer-events: none;
 }
 
 #controls {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    background-color: rgba(0, 0, 0, 0.5);
-    color: white;
-    padding: 15px;
-    border-radius: 8px;
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    font-size: 14px;
-    transition: opacity 0.3s ease;
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  transition: opacity 0.3s ease;
 }
 
 #controls:hover {
-    opacity: 1;
+  opacity: 1;
 }
 
 #controls > div {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 #player-instructions {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 15px;
-    border-radius: 8px;
-    z-index: 100;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    font-size: 14px;
-    transition: opacity 0.3s ease;
-    max-width: 250px;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  z-index: 100;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  transition: opacity 0.3s ease;
+  max-width: 250px;
 }
 
 #player-instructions h3 {
-    margin-bottom: 10px;
-    text-align: center;
-    font-size: 16px;
-    color: #89CFF0;
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 16px;
+  color: #89cff0;
 }
 
 #player-instructions ul {
-    list-style-position: inside;
-    margin-bottom: 12px;
+  list-style-position: inside;
+  margin-bottom: 12px;
 }
 
 #player-instructions li {
-    margin-bottom: 5px;
+  margin-bottom: 5px;
 }
 
 #player-instructions p {
-    font-style: italic;
-    font-size: 12px;
-    text-align: center;
-    color: #ccc;
+  font-style: italic;
+  font-size: 12px;
+  text-align: center;
+  color: #ccc;
 }
 
-select, input[type="checkbox"] {
-    background-color: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: white;
-    padding: 4px;
-    border-radius: 4px;
-    cursor: pointer;
+select,
+input[type="checkbox"] {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 select {
-    width: 90px;
+  width: 90px;
 }
 
 select option {
-    background-color: #333;
-    color: white;
+  background-color: #333;
+  color: white;
 }
 
 label {
-    font-weight: 500;
+  font-weight: 500;
 }
 
 /* Style for the customizer button */
 .action-button {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 8px 15px;
-    font-size: 14px;
-    cursor: pointer;
-    z-index: 100;
-    transition: background-color 0.2s;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  z-index: 100;
+  transition: background-color 0.2s;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .action-button:hover {
-    background-color: rgba(20, 20, 20, 0.8);
+  background-color: rgba(20, 20, 20, 0.8);
 }
 
 /* Hide pointer lock notice */
@@ -147,85 +149,178 @@ label {
 .pointerLockMessage,
 #pointer-lock-message,
 .pointer-lock-message {
-    display: none !important;
+  display: none !important;
 }
 
 /* Underwater overlay */
 #underwater-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 50;
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    background-color: rgba(0, 70, 150, 0.9);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  background-color: rgba(0, 70, 150, 0.9);
 }
 
 #compass {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 80px;
-    height: 80px;
-    background-color: rgba(0, 0, 0, 0.7);
-    border: 2px solid rgba(255, 255, 255, 0.8);
-    border-radius: 50%;
-    z-index: 1000;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 80px;
+  height: 80px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  z-index: 1000;
 }
 
 .cardinal-points {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
 }
 
 .cardinal {
-    position: absolute;
-    color: rgba(255, 255, 255, 0.8);
-    font-weight: bold;
-    font-size: 14px;
-    text-align: center;
-    width: 20px;
-    height: 20px;
-    line-height: 20px;
+  position: absolute;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: bold;
+  font-size: 14px;
+  text-align: center;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
 }
 
 .cardinal.north {
-    top: 5px;
-    left: 50%;
-    transform: translateX(-50%);
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .cardinal.south {
-    bottom: 5px;
-    left: 50%;
-    transform: translateX(-50%);
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .cardinal.east {
-    right: 5px;
-    top: 50%;
-    transform: translateY(-50%);
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .cardinal.west {
-    left: 5px;
-    top: 50%;
-    transform: translateY(-50%);
+  left: 5px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 #compass-arrow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform-origin: center;
-    color: #ff3b3b;
-    font-size: 28px;
-    transform: translate(-50%, -50%);
-    text-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
-} 
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  color: #ff3b3b;
+  font-size: 28px;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+#startScreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  color: white;
+  text-align: center;
+  padding: 20px;
+}
+
+#startScreen h1 {
+  font-size: 48px;
+  margin-bottom: 30px;
+  color: #4CAF50;
+}
+
+#startScreen p {
+  margin: 5px 0;
+}
+
+#startScreen a {
+  color: #4CAF50;
+  text-decoration: none;
+}
+
+#startScreen a:hover {
+  text-decoration: underline;
+}
+
+#loadingContainer {
+  text-align: center;
+  color: white;
+  padding: 30px;
+  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  width: 80%;
+  max-width: 500px;
+}
+
+#loadingContainer h1 {
+  margin-top: 0;
+  font-size: 36px;
+  margin-bottom: 30px;
+  color: #4caf50;
+}
+
+#loadingBar {
+  width: 100%;
+  height: 20px;
+  background-color: #333;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  overflow: hidden;
+}
+
+#loadingProgress {
+  height: 100%;
+  width: 0%;
+  background-color: #4caf50;
+  transition: width 0.3s;
+}
+
+#loadingText {
+  margin-bottom: 30px;
+  font-size: 18px;
+}
+
+#playButton {
+  position: absolute;
+  left: 40%;
+  top: 50%;
+  right: 40%;
+  padding: 15px 30px;
+  font-size: 24px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#playButton:hover {
+  background-color: #45a049;
+}

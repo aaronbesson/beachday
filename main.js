@@ -14,7 +14,7 @@ import { createTerrain } from './modules/createTerrain.js';
 import { createTrees } from './modules/createTrees.js';
 import { PlayerCustomizer } from './playerCustomizer.js';
 import { createSharks, updateSharks } from './modules/createSharks.js';
-import { createBears, updateBears } from './modules/createBear.js';
+import { createBear, updateBear } from './modules/createBear.js';
 import { createWolf, updateWolf } from './modules/createWolf.js';
 import { createHouse, updateHouse } from './modules/createHouse.js';
 
@@ -30,7 +30,7 @@ let player = {
     height: 0, // Height offset above terrain
     lastGroundY: 0, // Last detected ground height
     model: null, // Will store the squirrel model
-    modelOffset: {x: 0, y: -3.0, z: 0}, // Offset for the model relative to camera
+    modelOffset: {x: 0, y: -20.0, z: 0}, // Offset for the model relative to camera
     jumpHeight: 5, // Jump height
     isJumping: false,
     jumpTime: 0.8,
@@ -66,7 +66,76 @@ let playerCustomizer;
 // Add a flag to track if space is already pressed
 let spacePressed = false;
 
-// Initialize the scene
+// Create audio object for forest ambient sound
+const forestSound = new Audio('./assets/soundfx/forest.mp3');  // Use relative path
+
+// Configure audio
+forestSound.loop = true;
+forestSound.volume = 0.25;
+
+// Loading manager to track progress
+const loadingManager = new THREE.LoadingManager();
+let totalItems = 0;
+let loadedItems = 0;
+
+// Setup loading manager
+loadingManager.onStart = function(url, itemsLoaded, itemsTotal) {
+    totalItems = itemsTotal;
+    console.log('Started loading: ' + url);
+};
+
+loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
+    loadedItems = itemsLoaded;
+    const progress = Math.round((itemsLoaded / itemsTotal) * 100);
+    updateLoadingProgress(progress);
+    console.log('Loading file: ' + url + ' (' + itemsLoaded + '/' + itemsTotal + ')');
+};
+
+loadingManager.onLoad = function() {
+    console.log('Loading complete!');
+    enablePlayButton();
+};
+
+loadingManager.onError = function(url) {
+    console.error('Error loading: ' + url);
+};
+
+// Update loading progress in UI
+function updateLoadingProgress(percent) {
+    const progressBar = document.getElementById('loadingProgress');
+    const loadingText = document.getElementById('loadingText');
+    
+    if (progressBar && loadingText) {
+        progressBar.style.width = percent + '%';
+        loadingText.textContent = 'Loading: ' + percent + '%';
+    }
+}
+
+// Enable play button when loading is complete
+function enablePlayButton() {
+    const playButton = document.getElementById('playButton');
+    if (playButton) {
+        playButton.disabled = false;
+        playButton.textContent = 'Start Game';
+        loadingText.textContent = 'Ready to Play!';
+    }
+}
+
+// Start game function - called when play button is clicked
+function startGame() {
+    // Play the forest sound - within user gesture context
+    forestSound.play().catch(error => {
+        console.error('Error playing forest sound:', error);
+    });
+    
+    // Hide the start screen
+    document.getElementById('startScreen').style.display = 'none';
+    
+    // Start animation loop - this should only happen when the button is clicked
+    animate();
+}
+
+// Initialize everything, this runs on page load now
 function init() {
     // Create scene
     scene = new THREE.Scene();
@@ -142,7 +211,7 @@ function init() {
     hippos = createHippos(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, HIPPO_COUNT);    
 
     // Create bears from the module
-    bears = createBears(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BEAR_COUNT);
+    bears = createBear(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BEAR_COUNT);
 
     // Create wolves from the module
     wolf = createWolf(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, WOLF_COUNT);
@@ -157,15 +226,14 @@ function init() {
     // Setup event listeners for UI
     setupEventListeners();
 
-    // Print instructions to console
-    console.log("WASD or Arrow Keys to move, Space to jump");
-    console.log("Click anywhere to enter first-person mode, ESC to exit");
-    
     // Create crosshair element
     createCrosshair();
     
-    // Start animation loop
-    animate();
+    // Log instructions
+    console.log("WASD or Arrow Keys to move, Space to jump");
+    console.log("Click anywhere to enter first-person mode, ESC to exit");
+    
+    // Don't start animation or sound here - wait for button click
 }
 
 // Set up player and controls
@@ -752,7 +820,7 @@ function animate() {
     updateHippos(hippos, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
 
     // Update bears using the imported function
-    updateBears(bears, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
+    updateBear(bears, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, camera.position);
 
     // Update wolves using the imported function
     updateWolf(wolf, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, camera.position);
@@ -769,7 +837,7 @@ function animate() {
             camera.getWorldDirection(direction);
             
             // Calculate angle in degrees from camera direction
-            const angle = Math.atan2(direction.x, direction.z) * (180 / Math.PI);
+            const angle = -Math.atan2(direction.x, direction.z) * (180 / Math.PI);
             
             // Update compass arrow rotation
             compassArrow.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
@@ -790,8 +858,8 @@ function createCrosshair() {
     crosshair.style.position = 'absolute';
     crosshair.style.top = '50%';
     crosshair.style.left = '50%';
-    crosshair.style.width = '20px';
-    crosshair.style.height = '20px';
+    crosshair.style.width = '70px';
+    crosshair.style.height = '70px';
     crosshair.style.transform = 'translate(-50%, -50%)';
     crosshair.style.pointerEvents = 'none'; // Make it non-interactive
     crosshair.style.opacity = '0'; // Hidden by default
@@ -801,25 +869,40 @@ function createCrosshair() {
     verticalLine.style.position = 'absolute';
     verticalLine.style.top = '0';
     verticalLine.style.left = '50%';
-    verticalLine.style.width = '2px';
+    verticalLine.style.width = '1px';
     verticalLine.style.height = '100%';
     verticalLine.style.backgroundColor = 'white';
     verticalLine.style.transform = 'translateX(-50%)';
+
     
     const horizontalLine = document.createElement('div');
     horizontalLine.style.position = 'absolute';
     horizontalLine.style.top = '50%';
     horizontalLine.style.left = '0';
     horizontalLine.style.width = '100%';
-    horizontalLine.style.height = '2px';
+    horizontalLine.style.height = '1px';
     horizontalLine.style.backgroundColor = 'white';
     horizontalLine.style.transform = 'translateY(-50%)';
-    
+
     crosshair.appendChild(verticalLine);
     crosshair.appendChild(horizontalLine);
     
     document.body.appendChild(crosshair);
 }
 
-// Start the application
-init(); 
+// Add event listener when document is ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Set up the play button
+    const playButton = document.getElementById('playButton');
+    if (playButton) {
+        playButton.addEventListener('click', startGame);
+    }
+    
+    // Just initialize the scene but don't start animation
+    init();
+    
+    // Render a single frame to show the initial state
+    renderer.render(scene, camera);
+});
+
+// No direct call to init() here since we're calling it in DOMContentLoaded 

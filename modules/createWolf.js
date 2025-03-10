@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+// Animation components
+const animationMixers = new Map();
+const clock = new THREE.Clock();
+
 // Export the main function to create wolves
 export function createWolf(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, WOLF_COUNT) {
     const wolves = new THREE.Group();
@@ -63,10 +67,10 @@ export function createWolf(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, W
             wolfGroup.remove(tempWolf); // Remove placeholder
             
             const model = gltf.scene;
-            model.scale.set(47, 47, 47);
+            model.scale.set(25, 25, 25);
             // rotate model 90 degrees on the x axis
-            model.rotation.y = -Math.PI / 2;
-            model.position.y = 2
+            model.rotation.y = Math.PI * 1;
+            model.position.y = 0;
             // Add model to the container, not directly to wolf group
             wolfGroup.userData.modelContainer.add(model);
             
@@ -77,6 +81,33 @@ export function createWolf(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, W
                     node.receiveShadow = true;
                 }
             });
+            
+            // Set up animations
+            if (gltf.animations && gltf.animations.length > 0) {
+                console.log(`Wolf animations found:`, 
+                    gltf.animations.map(a => a.name).join(', '));
+                
+                // Create a mixer for this model
+                const mixer = new THREE.AnimationMixer();
+                animationMixers.set(wolfGroup.userData.id, { 
+                    mixer: mixer,
+                    scene: model
+                });
+                
+                // Play the first animation 
+                const action = mixer.clipAction(gltf.animations[0], model);
+                action.setLoop(THREE.LoopRepeat);
+                // Start with slower speed for wandering
+                action.timeScale = 0.1;
+                action.play();
+                
+                // Store the action reference for speed adjustment during chase
+                wolfGroup.userData.animationAction = action;
+                
+                console.log("Started playing wolf animation:", gltf.animations[0].name);
+            } else {
+                console.warn('No animations found in wolf model');
+            }
             
             console.log("Wolf model loaded at position:", wolfGroup.position);
         });
@@ -100,7 +131,7 @@ const CHASE_DELAY = 1000; // 1 second delay before chase starts
 // Wolf parameters
 const WOLF_CHASE_DISTANCE = 200; // Distance at which wolf notices player
 const WOLF_CHASE_SPEED = 7.0; // Increased from 1.5 to 15.0 (10x faster)
-const WOLF_Y_ROTATION_OFFSET = Math.PI * -0.5; // Adjust this value to rotate the wolf (currently 90 degrees)
+const WOLF_Y_ROTATION_OFFSET = Math.PI * 1; // Adjust this value to rotate the wolf (currently 90 degrees)
 let wolfSound = null;
 let lastGrowlTime = 0;
 const GROWL_COOLDOWN = 2000; // 2 seconds cooldown between growls
@@ -118,6 +149,12 @@ export function updateWolf(wolves, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTe
     
     // Initialize sound if not done yet
     initWolfSound();
+    
+    // Update all animation mixers with clock delta
+    const deltaTime = clock.getDelta();
+    animationMixers.forEach(({ mixer }) => {
+        mixer.update(deltaTime);
+    });
 
     // PROXIMITY AND CHASE DETECTION
     if (playerPosition) {
@@ -217,6 +254,11 @@ export function updateWolf(wolves, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTe
 
             // Add aggressive bobbing during chase
             wolf.position.y += Math.sin(Date.now() * 0.01) * 1.0;
+            
+            // Speed up animation during chase
+            if (data.animationAction && data.animationAction.timeScale !== 1.5) {
+                data.animationAction.timeScale = 4;
+            }
 
         } else {
             // NORMAL WANDERING BEHAVIOR
@@ -271,6 +313,11 @@ export function updateWolf(wolves, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTe
             
             // Normal bobbing animation
             wolf.position.y += Math.sin(time * data.speed * 10) * 0.5;
+            
+            // Slow down animation during wandering
+            if (data.animationAction && data.animationAction.timeScale !== 0.5) {
+                data.animationAction.timeScale = 0.5;
+            }
         }
     });
 }
