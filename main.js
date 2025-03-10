@@ -28,7 +28,7 @@ let crosshair;
 let stones = [];
 let stoneGeometry, stoneMaterial;
 let lastShotTime = 0;
-const SHOT_COOLDOWN = 0.1; // Cooldown between shots in seconds
+const SHOT_COOLDOWN = 0.75; // Cooldown between shots in seconds
 
 // Player settings
 let player = {
@@ -64,7 +64,7 @@ const SHARK_COUNT = 12;
 const TREE_COUNT = 360;
 const CLOUD_COUNT = 0;
 const BIRD_COUNT = 0;
-const PIG_COUNT = 24;
+const PIG_COUNT = Math.floor(TREE_COUNT / 10);
 const HIPPO_COUNT = 0;
 const BEAR_COUNT = 1;
 const LEVEL_BOSS_COUNT = 1;
@@ -136,9 +136,9 @@ function init() {
     scene.background = new THREE.Color(0x87ceeb);
     scene.fog = new THREE.FogExp2(0x87ceeb, 0.0008);
     
-    camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 10000);
-    camera.position.set(40, 40, 0);
-    camera.lookAt(15, 40, 0);
+    camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 10000);
+    camera.position.set(0, 0, 0);
+    camera.lookAt(0, 0, 0);
     
     renderer = new THREE.WebGLRenderer({
         canvas: document.getElementById('scene'),
@@ -252,7 +252,7 @@ function setupPlayer() {
         const camera = fpControls.getObject();
         const terrainY = getTerrainHeight(camera.position.x, camera.position.z);
         player.lastGroundY = terrainY;
-        camera.position.y = terrainY + player.height;
+        camera.position.y = terrainY + 40;
         if (controls) controls.enabled = false;
     });
     
@@ -272,7 +272,7 @@ function preloadSquirrelModels() {
     loader.load('./assets/flying-squirrel.glb', (gltf) => {
         player.flyingModel = gltf.scene;
         player.flyingModel.visible = false;
-        player.flyingModel.scale.set(8, 8, 8);
+        player.flyingModel.scale.set(10, 8, 10);
         scene.add(player.flyingModel);
         
         // Copy position from main model if available
@@ -584,7 +584,7 @@ function shootStone() {
     stone.position.add(forward.multiplyScalar(10)); // Offset to avoid camera clipping
     
     // Set velocity (40 units per second in camera direction)
-    stone.velocity = forward.multiplyScalar(40);
+    stone.velocity = forward.multiplyScalar(60);
     
     // Add slight upward trajectory
     stone.velocity.y += 8;
@@ -620,7 +620,7 @@ function animate() {
         if (player.isJumping && player.model) {
             camera.position.y = player.model.position.y;
         } else {
-            camera.position.y = baseHeight + 10;
+            camera.position.y = baseHeight + 5;
         }
         
         const underwaterOverlay = document.getElementById('underwater-overlay');
@@ -729,7 +729,7 @@ function createCrosshair() {
     crosshair = document.createElement('div');
     crosshair.id = 'crosshair';
     crosshair.style.position = 'absolute';
-    crosshair.style.top = '50%';
+    crosshair.style.top = 'calc(50% - 5px)';
     crosshair.style.left = '50%';
     crosshair.style.width = '70px';
     crosshair.style.height = '70px';

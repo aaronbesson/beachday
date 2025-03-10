@@ -131,7 +131,7 @@ async function createBossInstance(bossGroup, bossData, TERRAIN_SIZE, WATER_LEVEL
         speed: bossSpeed * 8, // Scale the base speed based on boss speed
         radius: 50 + Math.random() * 200,
         height: position.y,
-        angle: Math.random() * Math.PI * 2,
+        angle: -Math.random() * Math.PI * 2,
         lastTerrainY: y,
         bossData: bossData,
         // Add model container to apply terrain tilt separately
@@ -161,7 +161,7 @@ function loadBossModel(bossInstance, modelPath, tempBoss) {
             // Apply default scaling and rotation for wolf model
             // These could be made configurable per boss type in the future
             model.scale.set(47, 47, 47);
-            model.rotation.y = -Math.PI / 2;
+            model.rotation.y = Math.PI * 0.5;
             model.position.y = 2;
             
             // Add model to the container, not directly to boss group
@@ -403,9 +403,21 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
             const moveX = boss.position.x - prevX;
             const moveZ = boss.position.z - prevZ;
             if (Math.abs(moveX) > 0.001 || Math.abs(moveZ) > 0.001) {
-                // Reset rotation before applying new one
+                // Get the movement direction vector
+                const movementVector = new THREE.Vector3(moveX, 0, moveZ);
+                
+                // Calculate a target point in the opposite direction of movement
+                // We need to look in the opposite direction since THREE.js models typically face -Z
+                const targetPoint = new THREE.Vector3(
+                    boss.position.x - movementVector.x,
+                    boss.position.y,
+                    boss.position.z - movementVector.z
+                );
+                
+                // Reset rotation and use lookAt - same as chase mode
                 boss.rotation.set(0, 0, 0);
-                boss.rotation.y = Math.atan2(moveX, moveZ) + Y_ROTATION_OFFSET;
+                boss.lookAt(targetPoint);
+                boss.rotation.y += Y_ROTATION_OFFSET;
             }
             
             // Normal bobbing animation

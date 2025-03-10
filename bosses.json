@@ -1,33 +1,6 @@
 {
     "levelBosses": [
-        {
-            "name": "Goose",
-            "description": "The goose is a formidable opponent. It will charge at you and attack you if you get too close. Its attack is characterized by rapid, unpredictable strikes. Attack it with a stick.",
-            "image": "goose.png",
-            "model": "goose.glb",
-            "health": 100,
-            "attack": 10,
-            "defense": 5,
-            "speed": 5,
-            "range": 10,
-            "attackType": "melee",
-            "sound": "goose.mp3",
-            "water": true
-        },
-        {
-            "name": "Pig",
-            "description": "The pig is a formidable opponent. It will charge at you and attack you if you get too close. Its attack is characterized by a powerful, charging ram. Its weakness is stones.",
-            "image": "pig.png",
-            "model": "pig.glb",
-            "health": 100,
-            "attack": 10,
-            "defense": 5,
-            "speed": 5,
-            "range": 10,
-            "attackType": "melee",
-            "sound": "pig.mp3",
-            "water": true
-        },
+
         {
             "name": "Pitbull",
             "description": "The pitbull is a formidable opponent. It will charge at you and attack you if you get too close. Its attack is characterized by aggressive biting and a relentless charge. Its weakness is stick.",
