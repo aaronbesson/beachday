@@ -13,7 +13,7 @@
             "range": 10,
             "attackType": "melee",
             "sound": "pitbull.mp3",
-            "water": false
+            "water": true
         },
         {
             "name": "Wolf",

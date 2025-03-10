@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getHousePosition, getHouseFootprint } from './createHouse.js';
 
 // State variables for boss behavior
 let playerTrail = [];
@@ -161,7 +162,7 @@ function loadBossModel(bossInstance, modelPath, tempBoss) {
             // Apply default scaling and rotation for wolf model
             // These could be made configurable per boss type in the future
             model.scale.set(47, 47, 47);
-            model.rotation.y = Math.PI * 0.5;
+            model.rotation.y = -Math.PI * 0.5;
             model.position.y = 2;
             
             // Add model to the container, not directly to boss group
@@ -195,6 +196,34 @@ function initBossSound(bossData) {
         bossSound = new Audio('/assets/soundfx/wolf.mp3');
         bossSound.volume = 0.5;
     }
+}
+
+// Add a function to check if the boss would collide with the house
+function wouldCollideWithHouse(newX, newZ) {
+    const housePos = getHousePosition();
+    const house = getHouseFootprint();
+    
+    if (!housePos || !house) {
+        return false;
+    }
+    
+    // Calculate distance from boss to house center
+    const dx = newX - housePos.x;
+    const dz = newZ - housePos.z;
+    const distance = Math.sqrt(dx * dx + dz * dz);
+    
+    // Check if boss would be inside house footprint (plus a small margin)
+    const collisionDistance = house.size / 2 + 10; // Add a margin of 10 units
+    
+    const collision = distance < collisionDistance;
+    if (collision) {
+        // Log collision but not too frequently
+        if (Math.random() < 0.05) {
+            console.log(`Boss collision with house detected! Distance: ${distance.toFixed(2)}, Threshold: ${collisionDistance.toFixed(2)}`);
+        }
+    }
+    
+    return collision;
 }
 
 // Update boss positions and behaviors
@@ -299,9 +328,12 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
             const waterDetected = terrainY < WATER_LEVEL + 1;
             const canGoInWater = data.bossData?.water === true;
             const outOfBounds = Math.abs(newX) > TERRAIN_SIZE/2 * 0.8 || Math.abs(newZ) > TERRAIN_SIZE/2 * 0.8;
+
+            // Check if new position would collide with house
+            const wouldCollideHouse = wouldCollideWithHouse(newX, newZ);
             
-            // Only move if the boss can go to the new position
-            if (!outOfBounds && (canGoInWater || !waterDetected)) {
+            // Only move if the boss can go to the new position and won't collide with house
+            if (!outOfBounds && (canGoInWater || !waterDetected) && !wouldCollideHouse) {
                 // Move towards player at increased speed
                 boss.position.x = newX;
                 boss.position.z = newZ;
@@ -319,16 +351,35 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
                 }
             } else {
                 // If can't move directly toward player, try to circle around obstacle
+                // Add a slight adjustment to the angle to try to find a path around obstacles
+                if (!data.angle) data.angle = Math.atan2(directionToPlayer.z, directionToPlayer.x);
                 data.angle += Math.PI/8; // Small rotation to try finding a path
-                boss.position.x += Math.cos(data.angle) * bossSpeed * 0.5;
-                boss.position.z += Math.sin(data.angle) * bossSpeed * 0.5;
                 
-                // Check the new circling position
-                const newTerrainY = getTerrainHeight(boss.position.x, boss.position.z);
-                if (newTerrainY < WATER_LEVEL + 1 && !canGoInWater) {
-                    // Back up if still in water
-                    boss.position.x -= Math.cos(data.angle) * bossSpeed * 0.5;
-                    boss.position.z -= Math.sin(data.angle) * bossSpeed * 0.5;
+                const circleX = boss.position.x + Math.cos(data.angle) * bossSpeed * 0.5;
+                const circleZ = boss.position.z + Math.sin(data.angle) * bossSpeed * 0.5;
+                
+                // Check if this new position avoids house and water constraints
+                const circleTerrainY = getTerrainHeight(circleX, circleZ);
+                const circleWaterDetected = circleTerrainY < WATER_LEVEL + 1;
+                const circleOutOfBounds = Math.abs(circleX) > TERRAIN_SIZE/2 * 0.8 || Math.abs(circleZ) > TERRAIN_SIZE/2 * 0.8;
+                const circleCollideHouse = wouldCollideWithHouse(circleX, circleZ);
+                
+                // Move if the circling position is valid
+                if (!circleOutOfBounds && (canGoInWater || !circleWaterDetected) && !circleCollideHouse) {
+                    boss.position.x = circleX;
+                    boss.position.z = circleZ;
+                    
+                    // Update height based on terrain and water capability
+                    if (circleWaterDetected && canGoInWater) {
+                        // Special case for goose - floats higher in water
+                        if (data.bossData?.name === 'Goose') {
+                            boss.position.y = WATER_LEVEL + 4; // Goose floats higher
+                        } else {
+                            boss.position.y = WATER_LEVEL + 1; // Just above water for swimming
+                        }
+                    } else {
+                        boss.position.y = Math.max(circleTerrainY, WATER_LEVEL + 1) + 2;
+                    }
                 }
             }
 
@@ -377,7 +428,10 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
             // If boss can't go in water AND water is detected, or if out of bounds
             const waterDetected = terrainY < WATER_LEVEL + 1;
             
-            if ((waterDetected && !canGoInWater) || outOfBounds) {
+            // Check if new position would collide with house
+            const wouldCollideHouse = wouldCollideWithHouse(newX, newZ);
+            
+            if ((waterDetected && !canGoInWater) || outOfBounds || wouldCollideHouse) {
                 data.angle += Math.PI + (Math.random() - 0.5) * 1.0;
                 data.radius = Math.max(50, data.radius * 0.8);
                 boss.position.x = prevX;
