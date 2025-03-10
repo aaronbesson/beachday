@@ -12,6 +12,9 @@ export function createTrees(
     // Create a group to hold all trees
     const trees = new THREE.Group();
     
+    // Create array to store tree collision data
+    const treeColliders = [];
+    
     // Find positions on terrain that are above water level
     const potentialPositions = [];
     const terrainVertices = terrain.geometry.attributes.position.array;
@@ -118,6 +121,13 @@ export function createTrees(
         // Random rotation for variety
         treeGroup.rotation.y = Math.random() * Math.PI * 2;
         
+        // Add collision data for this tree
+        const collisionRadius = size * 0.6; // Reduced from 0.8 to make collisions less restrictive
+        treeColliders.push({
+            position: new THREE.Vector3(position.x, position.y, position.z),
+            radius: collisionRadius
+        });
+        
         return treeGroup;
     }
     
@@ -146,6 +156,6 @@ export function createTrees(
     // Add the trees group to the scene
     scene.add(trees);
     
-    // Return the trees group
-    return trees;
+    // Return the trees group and collision data
+    return { trees, treeColliders };
 }

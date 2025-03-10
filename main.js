@@ -23,6 +23,7 @@ let scene, camera, renderer, controls, fpControls;
 let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos, bears, levelBoss, house;
 let clock = new THREE.Clock();
 let crosshair;
+let treeColliders = [];
 
 // Variables for shooting mechanic
 let stones = [];
@@ -169,7 +170,10 @@ function init() {
     createWater();
     
     house = createHouse(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
-    trees = createTrees(scene, terrain, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, TREE_COUNT);
+    const treeResult = createTrees(scene, terrain, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, TREE_COUNT);
+    trees = treeResult.trees;
+    treeColliders = treeResult.treeColliders;
+    console.log(`Loaded ${treeColliders.length} tree colliders`);
     clouds = createClouds(scene, TERRAIN_SIZE, CLOUD_COUNT);
     birds = createBirds(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BIRD_COUNT);
     pigs = createPigs(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, PIG_COUNT);
@@ -584,10 +588,10 @@ function shootStone() {
     stone.position.add(forward.multiplyScalar(10)); // Offset to avoid camera clipping
     
     // Set velocity (40 units per second in camera direction)
-    stone.velocity = forward.multiplyScalar(60);
+    stone.velocity = forward.multiplyScalar(40);
     
     // Add slight upward trajectory
-    stone.velocity.y += 8;
+    stone.velocity.y += 12;
     
     // Track creation time for lifetime
     stone.creationTime = currentTime;
@@ -608,10 +612,44 @@ function animate() {
         const prevX = camera.position.x;
         const prevZ = camera.position.z;
         
+        // Store current position before moving
+        const originalPosition = {
+            x: camera.position.x,
+            z: camera.position.z
+        };
+        
+        // Apply movement
         if (moveForward) fpControls.moveForward(speed);
         if (moveBackward) fpControls.moveForward(-speed);
         if (moveLeft) fpControls.moveRight(-speed);
         if (moveRight) fpControls.moveRight(speed);
+        
+        // Check for tree collisions
+        let collisionDetected = false;
+        const playerRadius = 1; // Reduced from 2 to be less restrictive
+        
+        if (treeColliders && treeColliders.length > 0) {
+            for (const tree of treeColliders) {
+                if (!tree || !tree.position) continue;
+                
+                const dx = camera.position.x - tree.position.x;
+                const dz = camera.position.z - tree.position.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+                
+                // If player is too close to a tree
+                if (distance < tree.radius + playerRadius) {
+                    collisionDetected = true;
+                    console.log(`Tree collision detected at distance ${distance.toFixed(2)} (tree radius: ${tree.radius.toFixed(2)}, player radius: ${playerRadius})`);
+                    break;
+                }
+            }
+            
+            // If collision detected, restore previous position
+            if (collisionDetected) {
+                camera.position.x = originalPosition.x;
+                camera.position.z = originalPosition.z;
+            }
+        }
         
         const terrainY = getTerrainHeight(camera.position.x, camera.position.z);
         player.lastGroundY = terrainY;
@@ -638,8 +676,45 @@ function animate() {
             const modelZ = camera.position.z + direction.z * modelDistance;
             const modelTerrainY = getTerrainHeight(modelX, modelZ);
             const modelMinHeight = Math.max(modelTerrainY, WATER_LEVEL + 0.5);
-            player.model.position.x = modelX;
-            player.model.position.z = modelZ;
+            
+            // Store the original calculated model position
+            const originalModelPosition = {
+                x: modelX,
+                z: modelZ
+            };
+            
+            // Check for tree collisions with the model
+            let modelCollision = false;
+            const modelRadius = 1; // Reduced from 1.5 to be less restrictive
+            
+            if (treeColliders && treeColliders.length > 0) {
+                for (const tree of treeColliders) {
+                    if (!tree || !tree.position) continue;
+                    
+                    const dx = modelX - tree.position.x;
+                    const dz = modelZ - tree.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    
+                    // If model is too close to a tree
+                    if (distance < tree.radius + modelRadius) {
+                        modelCollision = true;
+                        break;
+                    }
+                }
+                
+                // Apply position (either original or collision-adjusted)
+                if (modelCollision) {
+                    // Keep the existing position (don't update)
+                    // No need to assign player.model.position to itself
+                } else {
+                    player.model.position.x = modelX;
+                    player.model.position.z = modelZ;
+                }
+            } else {
+                // If treeColliders isn't available, proceed without collision detection
+                player.model.position.x = modelX;
+                player.model.position.z = modelZ;
+            }
             
             if (player.isJumping) {
                 player.model.position.y -= 2;
