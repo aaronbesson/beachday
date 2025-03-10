@@ -15,14 +15,15 @@ import { createTrees } from './modules/createTrees.js';
 import { PlayerCustomizer } from './playerCustomizer.js';
 import { createSharks, updateSharks } from './modules/createSharks.js';
 import { createBears, updateBears } from './modules/createBear.js';
+import { createWolf, updateWolf } from './modules/createWolf.js';
 // Main scene variables
 let scene, camera, renderer, controls, fpControls;
-let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos, bears;
+let terrain, water, sky, sun, directionalLight, clouds, birds, pigs, trees, sharks, hippos, bears, wolf;
 let clock = new THREE.Clock();
 
 // Player settings
 let player = {
-    speed: 5,
+    speed: 9,
     height: 0, // Height offset above terrain
     lastGroundY: 0, // Last detected ground height
     model: null, // Will store the squirrel model
@@ -45,18 +46,17 @@ let isLocked = false;
 let terrainGeometry;
 
 // Parameters
-const TERRAIN_SIZE = 3000; // small for testing
-const TERRAIN_SEGMENTS = 124;
-const TERRAIN_HEIGHT = 57;
+const TERRAIN_SIZE = 2400; // small for testing
+const TERRAIN_SEGMENTS = 48;
 const WATER_LEVEL = 8;
-const SUN_HEIGHT = 400;
-const SHARK_COUNT = 4;
-const TREE_COUNT = 400;
+const SHARK_COUNT = 12;
+const TREE_COUNT = 360;
 const CLOUD_COUNT = 0;
 const BIRD_COUNT = 0;
-const PIG_COUNT = 5; // Number of pigs in the herd
-const HIPPO_COUNT = 2; // Number of hippos in the herd
+const PIG_COUNT = 24; // Number of pigs in the herd
+const HIPPO_COUNT = 0; // Number of hippos in the herd
 const BEAR_COUNT = 1; // Number of bears in the herd
+const WOLF_COUNT = 1; // Number of wolves in the herd
 // Global variables for our application
 let playerCustomizer;
 
@@ -81,9 +81,9 @@ function init() {
     // Debug marker removed - squirrel model is visible now
     
     // Create camera
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
-    camera.position.set(24, 24, 150);
-    camera.lookAt(0, 0, 0);
+    camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 10000);
+    camera.position.set(100, 24, 150);
+    camera.lookAt(15, 0, 0);
     
     // Create renderer
     renderer = new THREE.WebGLRenderer({
@@ -137,6 +137,9 @@ function init() {
 
     // Create bears from the module
     bears = createBears(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BEAR_COUNT);
+
+    // Create wolves from the module
+    wolf = createWolf(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, WOLF_COUNT);
     
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -178,9 +181,7 @@ function setupPlayer() {
         player.model.position.y += 10;
         
         // Set initial position - raised higher
-        player.model.position.set(50, 50, 50); // Start in front of camera
-        
-        console.log("Squirrel model added to scene at:", player.model.position);
+        player.model.position.set(0, 0, 0); // Start in front of camera
         
         // Create shadow for the player
         createPlayerShadow();
@@ -202,8 +203,8 @@ function setupPlayer() {
     scene.add(fpControls.getObject());
     
     // Position the camera higher and behind for third-person view
-    camera.position.set(0, 60, 30); // Higher and further behind
-    fpControls.getObject().position.set(0, 60, 30); // Match camera position
+    camera.position.set(12, 12, 12); // Higher and further behind
+    fpControls.getObject().position.set(12, 12, 12); // Match camera position
     console.log("Camera initialized at position:", fpControls.getObject().position);
     
     // Add click event to enable pointer lock
@@ -229,9 +230,7 @@ function setupPlayer() {
         const camera = fpControls.getObject();
         const terrainY = getTerrainHeight(camera.position.x, camera.position.z);
         player.lastGroundY = terrainY;
-        camera.position.y = terrainY + player.height + 10; // Higher for third-person
-        console.log("Initial terrain height:", terrainY, "Player Y:", camera.position.y);
-        
+        camera.position.y = terrainY + player.height + 15; // Higher for third-person
         // Hide regular controls
         if (controls) controls.enabled = false;
     });
@@ -276,12 +275,9 @@ function swapSquirrelModel(isJumping) {
             // Apply position and rotation
             player.model.position.copy(currentPosition);
             player.model.rotation.copy(currentRotation);
-            
-            console.log(`Swapped to ${isJumping ? 'flying' : 'regular'} squirrel model`);
-            
+        
             // Make sure pointer lock is still active if it was before
             if (wasLocked && !isLocked) {
-                console.log("Restoring pointer lock after model swap");
                 fpControls.lock();
             }
         });
@@ -292,7 +288,7 @@ function swapSquirrelModel(isJumping) {
 function createPlayerShadow() {
     // Create a circular plane for the shadow
     const shadowRadius = 3; // Larger shadow radius
-    const shadowGeometry = new THREE.CircleGeometry(shadowRadius, 32);
+    const shadowGeometry = new THREE.CircleGeometry(shadowRadius, 100);
     
     // Create a radial gradient texture for the shadow
     const canvas = document.createElement('canvas');
@@ -697,7 +693,7 @@ function animate() {
             // Handle Y position based on whether we're jumping or not
             if (player.isJumping) {
                 // Apply gravity effect when jumping
-                player.model.position.y -= 0.8; // Apply gravity when jumping
+                player.model.position.y -= 2; // Apply gravity when jumping
                 
                 // Check if we've landed
                 if (player.model.position.y <= modelMinHeight + player.modelBaseHeight) {
@@ -759,6 +755,9 @@ function animate() {
 
     // Update bears using the imported function
     updateBears(bears, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
+
+    // Update wolves using the imported function
+    updateWolf(wolf, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
     
     // Update player shadow position
     updatePlayerShadow();

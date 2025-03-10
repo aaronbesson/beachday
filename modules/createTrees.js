@@ -50,18 +50,18 @@ export function createTrees(
         });
         
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.y = size * 2;
+        trunk.position.y = size * 1;
         trunk.castShadow = true;
         trunk.receiveShadow = true;
         treeGroup.add(trunk);
         
         // Create detailed foliage with multiple layers
-        const foliageLayers = 3 + Math.floor(Math.random() * 2);
+        const foliageLayers = 1 + Math.floor(Math.random() * 5);
         const foliageMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x2d4c1e,
+            color: 0x228b22,
             roughness: 0.8,
-            metalness: 0.1,
-            flatShading: false
+            metalness: 0.01,
+            flatShading: true
         });
         
         for (let i = 0; i < foliageLayers; i++) {
@@ -114,7 +114,7 @@ export function createTrees(
         potentialPositions.splice(randomIndex, 1);
         
         // Random tree size
-        const size = 1 + Math.random() * 2;
+        const size = 0.2 + Math.random() * 14;
         
         const tree = createTree(position, size);
         trees.add(tree); // Add to trees group instead of directly to scene

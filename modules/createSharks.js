@@ -84,7 +84,7 @@ export function createSharks(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight,
         // Add movement properties with extreme territory settings
         sharkGroup.userData = { 
             id: Math.random(),
-            speed: 0.1,  // Faster movement
+            speed: 0.001,  // Faster movement
             radius: 300 + Math.random() * 800, // Extremely large radius
             waterDepth: 3 + Math.random() * 8,
             angle: Math.random() * Math.PI * 2,
@@ -110,7 +110,7 @@ export function createSharks(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight,
         
         // Load 3D model
         const loader = new GLTFLoader();
-        loader.load('./assets/shark.glb', (gltf) => {
+        loader.load('./assets/salmon.glb', (gltf) => {
             sharkGroup.remove(tempShark); // Remove placeholder
             
             const model = gltf.scene;
