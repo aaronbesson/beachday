@@ -14,7 +14,7 @@ import { createTerrain } from './modules/createTerrain.js';
 import { createTrees } from './modules/createTrees.js';
 import { PlayerCustomizer } from './playerCustomizer.js';
 import { createSharks, updateSharks } from './modules/createSharks.js';
-import { createBear, updateBear } from './modules/createBear.js';
+import { createBears, updateBears } from './modules/createBears.js';
 import { createWolf, updateWolf } from './modules/createWolf.js';
 import { createHouse, updateHouse } from './modules/createHouse.js';
 
@@ -211,7 +211,7 @@ function init() {
     hippos = createHippos(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, HIPPO_COUNT);    
 
     // Create bears from the module
-    bears = createBear(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BEAR_COUNT);
+    bears = createBears(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BEAR_COUNT);
 
     // Create wolves from the module
     wolf = createWolf(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, WOLF_COUNT);
@@ -820,7 +820,7 @@ function animate() {
     updateHippos(hippos, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight);
 
     // Update bears using the imported function
-    updateBear(bears, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, camera.position);
+    updateBears(bears, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, camera.position);
 
     // Update wolves using the imported function
     updateWolf(wolf, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, camera.position);
