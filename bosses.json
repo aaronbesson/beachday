@@ -1,8 +1,50 @@
 {
     "levelBosses": [
         {
+            "name": "Goose",
+            "description": "The goose is a formidable opponent. It will charge at you and attack you if you get too close. Its attack is characterized by rapid, unpredictable strikes. Attack it with a stick.",
+            "image": "goose.png",
+            "model": "goose.glb",
+            "health": 100,
+            "attack": 10,
+            "defense": 5,
+            "speed": 5,
+            "range": 10,
+            "attackType": "melee",
+            "sound": "goose.mp3",
+            "water": true
+        },
+        {
+            "name": "Pig",
+            "description": "The pig is a formidable opponent. It will charge at you and attack you if you get too close. Its attack is characterized by a powerful, charging ram. Its weakness is stones.",
+            "image": "pig.png",
+            "model": "pig.glb",
+            "health": 100,
+            "attack": 10,
+            "defense": 5,
+            "speed": 5,
+            "range": 10,
+            "attackType": "melee",
+            "sound": "pig.mp3",
+            "water": true
+        },
+        {
+            "name": "Pitbull",
+            "description": "The pitbull is a formidable opponent. It will charge at you and attack you if you get too close. Its attack is characterized by aggressive biting and a relentless charge. Its weakness is stick.",
+            "image": "pitbull.png",
+            "model": "pitbull.glb",
+            "health": 100,
+            "attack": 10,
+            "defense": 5,
+            "speed": 5,
+            "range": 10,
+            "attackType": "melee",
+            "sound": "pitbull.mp3",
+            "water": true
+        },
+        {
             "name": "Wolf",
-            "description": "The lone wolf is a formidable opponent. It will chase you relentlessly and attack you if you get too close.",
+            "description": "The lone wolf is a formidable opponent. It will chase you relentlessly and attack you if you get too close. Its attack is characterized by swift, agile strikes. Its weakness is fire.",
             "image": "wolf.png",
             "model": "wolf.glb",
             "health": 100,
@@ -11,7 +53,50 @@
             "speed": 5,
             "range": 10,
             "attackType": "melee",
-            "sound": "wolf.mp3"
+            "sound": "wolf.mp3",
+            "water": false
+        },
+        {
+            "name": "Bear",
+            "description": "The bear is a formidable opponent. It will charge at you and attack you if you get too close. Its attack is characterized by heavy, crushing blows. Its weakness is bow.",
+            "image": "bear.png",
+            "model": "bear.glb",
+            "health": 100,
+            "attack": 10,
+            "defense": 5,
+            "speed": 5,
+            "range": 10,
+            "attackType": "melee",
+            "sound": "bear.mp3",
+            "water": true
+        },
+        {
+            "name": "Lion",
+            "description": "The lion is a formidable opponent. It will charge at you and attack you if you get too close. Its attack is characterized by regal yet brutal strikes. Its weakness is fire.",
+            "image": "lion.png",
+            "model": "lion.glb",
+            "health": 100,
+            "attack": 10,
+            "defense": 5,
+            "speed": 5,
+            "range": 10,
+            "attackType": "melee",
+            "sound": "lion.mp3",
+            "water": false
+        },
+        {
+            "name": "Tiger",
+            "description": "The tiger is a formidable opponent. It will charge at you and attack you if you get too close. Its attack is characterized by stealthy pounces and lethal claw slashes. Its weakness is gun.",
+            "image": "tiger.png",
+            "model": "tiger.glb",
+            "health": 100,
+            "attack": 10,
+            "defense": 5,
+            "speed": 5,
+            "range": 10,
+            "attackType": "melee",
+            "sound": "tiger.mp3",
+            "water": true
         }
     ]
 }

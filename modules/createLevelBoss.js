@@ -15,7 +15,6 @@ const CHASE_DURATION = 10000; // 10 seconds in milliseconds
 const CHASE_TRIGGER_DISTANCE = 20;
 const CHASE_DELAY = 1000; // 1 second delay before chase starts
 const BOSS_CHASE_DISTANCE = 200; // Distance at which boss notices player
-const BOSS_CHASE_SPEED = 7.0;
 const SOUND_COOLDOWN = 2000; // 2 seconds cooldown between sounds
 
 // Load boss data from JSON
@@ -34,8 +33,19 @@ async function loadBossData() {
 }
 
 // Main function to create a level boss
-export async function createLevelBoss(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, bossName = 'Wolf', count = 1) {
-    const bossData = await getBossByName(bossName);
+export async function createLevelBoss(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, bossName = null, count = 1) {
+    // Load all boss data
+    const allBosses = await loadBossData();
+    if (allBosses.length === 0) {
+        console.error('No boss data available');
+        return null;
+    }
+    
+    // If no specific boss is requested, use the first one from the JSON
+    const bossData = bossName ? 
+        allBosses.find(boss => boss.name === bossName) : 
+        allBosses[0];
+    
     if (!bossData) {
         console.error(`Boss "${bossName}" not found in boss data`);
         return null;
@@ -44,7 +54,7 @@ export async function createLevelBoss(scene, TERRAIN_SIZE, WATER_LEVEL, getTerra
     // Create a group for all boss instances
     const bossGroup = new THREE.Group();
     bossGroup.userData = {
-        bossType: bossName,
+        bossType: bossData.name,
         bossData: bossData
     };
     
@@ -58,6 +68,7 @@ export async function createLevelBoss(scene, TERRAIN_SIZE, WATER_LEVEL, getTerra
     // Initialize sound
     initBossSound(bossData);
     
+    console.log(`Created boss: ${bossData.name}`);
     return bossGroup;
 }
 
@@ -69,20 +80,28 @@ async function getBossByName(name) {
 
 // Create an individual boss instance
 async function createBossInstance(bossGroup, bossData, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight) {
-    // Find a position on land by ensuring terrain height is above water level
+    // Find a position on land by ensuring terrain height is appropriate based on boss water capability
     let x, z, terrainHeight;
     let attempts = 0;
+    const canGoInWater = bossData.water === true;
     
-    // Try to find dry land position
+    // Try to find appropriate position
     do {
         x = (Math.random() - 0.5) * TERRAIN_SIZE * 0.7;
         z = (Math.random() - 0.5) * TERRAIN_SIZE * 0.7;
         terrainHeight = getTerrainHeight(x, z);
         attempts++;
+        
+        // For water bosses, we could choose to spawn them in water or on land
+        // For non-water bosses, we need to ensure they spawn on land
+        if (canGoInWater) {
+            // Water-capable bosses can spawn anywhere, so we're good with any location
+            break;
+        }
     } while (terrainHeight < WATER_LEVEL + 3 && attempts < 50);
     
-    // If we couldn't find a good spot, force one
-    if (terrainHeight < WATER_LEVEL + 3) {
+    // If we couldn't find a good spot for a land boss, force one
+    if (terrainHeight < WATER_LEVEL + 3 && !canGoInWater) {
         // Find a spot near the edge of the terrain which is likely to be above water
         x = (Math.random() - 0.5) * TERRAIN_SIZE * 0.6 + (Math.random() > 0.5 ? 1 : -1) * TERRAIN_SIZE * 0.3;
         z = (Math.random() - 0.5) * TERRAIN_SIZE * 0.6 + (Math.random() > 0.5 ? 1 : -1) * TERRAIN_SIZE * 0.3;
@@ -103,10 +122,13 @@ async function createBossInstance(bossGroup, bossData, TERRAIN_SIZE, WATER_LEVEL
     tempBoss.castShadow = true;
     bossInstance.add(tempBoss);
     
+    // Get speed from boss data (with fallback to default value)
+    const bossSpeed = bossData.speed !== undefined ? bossData.speed / 5 : 1; // Normalize speed where 5 = 1.0 (normal speed)
+    
     // Add movement properties
     bossInstance.userData = { 
         id: Math.random(),
-        speed: bossData.speed || 5,
+        speed: bossSpeed * 8, // Scale the base speed based on boss speed
         radius: 50 + Math.random() * 200,
         height: position.y,
         angle: Math.random() * Math.PI * 2,
@@ -161,8 +183,15 @@ function loadBossModel(bossInstance, modelPath, tempBoss) {
 
 // Initialize boss sound
 function initBossSound(bossData) {
-    // For now, just using wolf.mp3, but we could make this configurable per boss type
-    if (!bossSound) {
+    // Use the sound property from the boss data if available
+    if (!bossSound && bossData && bossData.sound) {
+        const soundPath = `/assets/soundfx/${bossData.sound}`;
+        console.log(`Loading boss sound: ${soundPath}`);
+        bossSound = new Audio(soundPath);
+        bossSound.volume = 0.5;
+    } else if (!bossSound) {
+        // Fallback to wolf sound if no specific sound is defined
+        console.log('Using default wolf sound');
         bossSound = new Audio('/assets/soundfx/wolf.mp3');
         bossSound.volume = 0.5;
     }
@@ -249,6 +278,7 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
     // Boss movement logic
     bossGroup.children.forEach(boss => {
         const data = boss.userData;
+        // Get the boss speed directly from the boss data
         const bossSpeed = data.bossData?.speed || 5;
         const Y_ROTATION_OFFSET = -Math.PI * -0.5; // Default rotation offset (could be made configurable per boss)
         
@@ -260,13 +290,47 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
                 playerPosition.z - boss.position.z
             ).normalize();
 
-            // Move towards player at increased speed
-            boss.position.x += directionToPlayer.x * BOSS_CHASE_SPEED;
-            boss.position.z += directionToPlayer.z * BOSS_CHASE_SPEED;
-
-            // Update terrain height
-            const terrainY = getTerrainHeight(boss.position.x, boss.position.z);
-            boss.position.y = Math.max(terrainY, WATER_LEVEL + 1) + 2;
+            // Calculate potential new position
+            const newX = boss.position.x + directionToPlayer.x * bossSpeed;
+            const newZ = boss.position.z + directionToPlayer.z * bossSpeed;
+            
+            // Check if new position is in water
+            const terrainY = getTerrainHeight(newX, newZ);
+            const waterDetected = terrainY < WATER_LEVEL + 1;
+            const canGoInWater = data.bossData?.water === true;
+            const outOfBounds = Math.abs(newX) > TERRAIN_SIZE/2 * 0.8 || Math.abs(newZ) > TERRAIN_SIZE/2 * 0.8;
+            
+            // Only move if the boss can go to the new position
+            if (!outOfBounds && (canGoInWater || !waterDetected)) {
+                // Move towards player at increased speed
+                boss.position.x = newX;
+                boss.position.z = newZ;
+                
+                // Update height based on terrain and water capability
+                if (waterDetected && canGoInWater) {
+                    // Special case for goose - floats higher in water
+                    if (data.bossData?.name === 'Goose') {
+                        boss.position.y = WATER_LEVEL + 4; // Goose floats higher
+                    } else {
+                        boss.position.y = WATER_LEVEL + 1; // Just above water for swimming
+                    }
+                } else {
+                    boss.position.y = Math.max(terrainY, WATER_LEVEL + 1) + 2;
+                }
+            } else {
+                // If can't move directly toward player, try to circle around obstacle
+                data.angle += Math.PI/8; // Small rotation to try finding a path
+                boss.position.x += Math.cos(data.angle) * bossSpeed * 0.5;
+                boss.position.z += Math.sin(data.angle) * bossSpeed * 0.5;
+                
+                // Check the new circling position
+                const newTerrainY = getTerrainHeight(boss.position.x, boss.position.z);
+                if (newTerrainY < WATER_LEVEL + 1 && !canGoInWater) {
+                    // Back up if still in water
+                    boss.position.x -= Math.cos(data.angle) * bossSpeed * 0.5;
+                    boss.position.z -= Math.sin(data.angle) * bossSpeed * 0.5;
+                }
+            }
 
             // Reset rotation and then make boss face player with offset
             boss.rotation.set(0, 0, 0);
@@ -307,7 +371,13 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
             const terrainY = getTerrainHeight(newX, newZ);
             const outOfBounds = Math.abs(newX) > TERRAIN_SIZE/2 * 0.8 || Math.abs(newZ) > TERRAIN_SIZE/2 * 0.8;
             
-            if (terrainY < WATER_LEVEL + 1 || outOfBounds) {
+            // Check if this boss can go in water (from boss data)
+            const canGoInWater = data.bossData?.water === true;
+            
+            // If boss can't go in water AND water is detected, or if out of bounds
+            const waterDetected = terrainY < WATER_LEVEL + 1;
+            
+            if ((waterDetected && !canGoInWater) || outOfBounds) {
                 data.angle += Math.PI + (Math.random() - 0.5) * 1.0;
                 data.radius = Math.max(50, data.radius * 0.8);
                 boss.position.x = prevX;
@@ -315,7 +385,18 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
             } else {
                 boss.position.x = newX;
                 boss.position.z = newZ;
-                boss.position.y = Math.max(terrainY, WATER_LEVEL + 1) + 2;
+                
+                // Adjust height - if in water and can swim, stay slightly above water level
+                if (waterDetected && canGoInWater) {
+                    // Special case for goose - floats higher in water
+                    if (data.bossData?.name === 'Goose') {
+                        boss.position.y = WATER_LEVEL + 12; // Goose floats higher
+                    } else {
+                        boss.position.y = WATER_LEVEL + 1; // Other water creatures just above water
+                    }
+                } else {
+                    boss.position.y = Math.max(terrainY, WATER_LEVEL + 1) + 2;
+                }
             }
             
             // Normal movement animations

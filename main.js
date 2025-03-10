@@ -154,8 +154,8 @@ function init() {
     
     // Create camera
     camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 10000);
-    camera.position.set(100, 24, 150);
-    camera.lookAt(15, 0, 0);
+    camera.position.set(0, 40, 0);
+    camera.lookAt(15, 40, 0);
     
     // Create renderer
     renderer = new THREE.WebGLRenderer({
@@ -213,8 +213,8 @@ function init() {
     // Create bears from the module
     bears = createBears(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, BEAR_COUNT);
 
-    // Create level boss from the module (Wolf is the default)
-    createLevelBoss(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, 'Wolf', LEVEL_BOSS_COUNT)
+    // Create level boss from the module (will use first boss from JSON)
+    createLevelBoss(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, null, LEVEL_BOSS_COUNT)
         .then(boss => {
             levelBoss = boss;
             console.log('Level boss created successfully');
@@ -299,7 +299,7 @@ function setupPlayer() {
         const camera = fpControls.getObject();
         const terrainY = getTerrainHeight(camera.position.x, camera.position.z);
         player.lastGroundY = terrainY;
-        camera.position.y = terrainY + player.height + 15; // Higher for third-person
+        camera.position.y = terrainY + player.height; // Higher for third-person
         // Hide regular controls
         if (controls) controls.enabled = false;
     });
