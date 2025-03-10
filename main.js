@@ -23,7 +23,7 @@ let clock = new THREE.Clock();
 
 // Player settings
 let player = {
-    speed: 9,
+    speed: 7,
     height: 0, // Height offset above terrain
     lastGroundY: 0, // Last detected ground height
     model: null, // Will store the squirrel model
