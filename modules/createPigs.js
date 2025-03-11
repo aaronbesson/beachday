@@ -1,5 +1,26 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getHousePosition, getHouseFootprint } from './createHouse.js';
+
+// Function to check if the pig would collide with the house
+function wouldCollideWithHouse(newX, newZ) {
+    const housePos = getHousePosition();
+    const house = getHouseFootprint();
+    
+    if (!housePos || !house) {
+        return false;
+    }
+    
+    // Calculate distance from pig to house center
+    const dx = newX - housePos.x;
+    const dz = newZ - housePos.z;
+    const distance = Math.sqrt(dx * dx + dz * dz);
+    
+    // Check if pig would be inside house footprint (plus a small margin)
+    const collisionDistance = house.size / 2 + 5; // Add a margin of 5 units
+    
+    return distance < collisionDistance;
+}
 
 // Export the main function to create pigs
 export function createPigs(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, PIG_COUNT) {
@@ -121,18 +142,24 @@ export function updatePigs(pigs, time, delta, TERRAIN_SIZE, WATER_LEVEL, getTerr
         const newX = pig.position.x + Math.cos(data.angle) * data.speed;
         const newZ = pig.position.z + Math.sin(data.angle) * data.speed;
         
-        // Check if new position is in water or out of bounds
+        // Check if new position is in water, out of bounds, or colliding with house
         const terrainY = getTerrainHeight(newX, newZ);
         const outOfBounds = Math.abs(newX) > TERRAIN_SIZE/2 * 0.8 || Math.abs(newZ) > TERRAIN_SIZE/2 * 0.8;
+        const wouldCollideHouse = wouldCollideWithHouse(newX, newZ);
         
-        if (terrainY < WATER_LEVEL + 1 || outOfBounds) {
-            // If we'd go in water or out of bounds, change direction
+        if (terrainY < WATER_LEVEL + 1 || outOfBounds || wouldCollideHouse) {
+            // If we'd go in water, out of bounds, or collide with house, change direction
             data.angle += Math.PI + (Math.random() - 0.5) * 1.0; // Flip with some randomness
             data.radius = Math.max(50, data.radius * 0.8); // Reduce radius to move inward
             
             // Keep existing position this frame
             pig.position.x = prevX;
             pig.position.z = prevZ;
+            
+            // Debug house collision occasionally
+            if (wouldCollideHouse && Math.random() < 0.01) {
+                console.log("Pig avoided house collision");
+            }
         } else {
             // Safe to move
             pig.position.x = newX;
