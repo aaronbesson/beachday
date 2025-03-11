@@ -169,36 +169,10 @@ function createHouseInterior(houseGroup, houseSize) {
     const textureLoader = new THREE.TextureLoader();
     let interiorTexture;
 
-    try {
-        interiorTexture = textureLoader.load(
-            './assets/texture/cabin-interior.jpg',
-            // Success callback
-            function (texture) {
-                // console.log("House interior texture loaded successfully");
-            },
-            // Progress callback
-            undefined,
-            // Error callback
-            function (err) {
-                console.error("Error loading house interior texture:", err);
-                // Fallback to a plain brown color if texture fails to load
-                updateInteriorMaterials(0x3F1800); // dark chocolate color
-            }
-        );
-
-        // Set texture properties for proper tiling
-        interiorTexture.wrapS = THREE.RepeatWrapping;
-        interiorTexture.wrapT = THREE.RepeatWrapping;
-        interiorTexture.repeat.set(1, 1);
-    } catch (error) {
-        console.error("Error setting up house interior texture:", error);
-        interiorTexture = null;
-    }
-
     // Material for interior walls with texture or fallback color
     const interiorMaterial = new THREE.MeshStandardMaterial({
-        map: interiorTexture,
-        color: interiorTexture ? 0xffffff : 0x8B4513, // Use white with texture or brown as fallback
+    
+        color: 0x3F1800, // Use white with texture or brown as fallback
         roughness: 0.8,
         metalness: 0.1,
         side: THREE.DoubleSide // Render both sides so we can see interior from outside
