@@ -587,7 +587,7 @@ function shootStone() {
     stone.position.copy(camera.position);
     stone.position.add(forward.multiplyScalar(10)); // Offset to avoid camera clipping
     
-    // Set velocity (40 units per second in camera direction)
+    // Set velocity (40 units per second in camera directiointeriorn)
     stone.velocity = forward.multiplyScalar(40);
     
     // Add slight upward trajectory

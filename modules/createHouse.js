@@ -124,6 +124,9 @@ export function createHouse(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight) 
             }
         });
 
+        // Create hollow interior cube for the house
+        createHouseInterior(houseGroup, houseSize);
+
         // Create wooden deck structure
         const deckGroup = new THREE.Group();
         
@@ -268,4 +271,157 @@ export function getHousePosition() {
 
 export function getHouseFootprint() {
     return houseFootprint;
+}
+
+// Function to create a hollow cube for house interior
+function createHouseInterior(houseGroup, houseSize) {
+    // Interior dimensions (slightly smaller than the house)
+    const interiorWidth = houseSize * 0.25;
+    const interiorHeight = houseSize * 0.25;
+    const interiorDepth = houseSize * 0.25;
+    const wallThickness = 3;
+    
+    // Load cabin interior texture with proper error handling
+    const textureLoader = new THREE.TextureLoader();
+    let interiorTexture;
+    
+    try {
+        interiorTexture = textureLoader.load(
+            './assets/texture/cabin-interior.jpg',
+            // Success callback
+            function(texture) {
+                console.log("House interior texture loaded successfully");
+            },
+            // Progress callback
+            undefined,
+            // Error callback
+            function(err) {
+                console.error("Error loading house interior texture:", err);
+                // Fallback to a plain brown color if texture fails to load
+                updateInteriorMaterials(0x3F1800); // dark chocolate color
+            }
+        );
+        
+        // Set texture properties for proper tiling
+        interiorTexture.wrapS = THREE.RepeatWrapping;
+        interiorTexture.wrapT = THREE.RepeatWrapping;
+        interiorTexture.repeat.set(1, 1);
+    } catch (error) {
+        console.error("Error setting up house interior texture:", error);
+        interiorTexture = null;
+    }
+    
+    // Material for interior walls with texture or fallback color
+    const interiorMaterial = new THREE.MeshStandardMaterial({
+        map: interiorTexture,
+        color: interiorTexture ? 0xffffff : 0x8B4513, // Use white with texture or brown as fallback
+        roughness: 0.8,
+        metalness: 0.1,
+        side: THREE.DoubleSide // Render both sides so we can see interior from outside
+    });
+    
+    // Function to update materials if texture fails to load
+    function updateInteriorMaterials(color) {
+        interiorGroup.traverse((child) => {
+            if (child.isMesh) {
+                child.material.map = null;
+                child.material.color.set(color);
+                child.material.needsUpdate = true;
+            }
+        });
+    }
+    
+    // Create a group for the interior
+    const interiorGroup = new THREE.Group();
+    
+    // Position the interior relative to house center (accounting for house model positioning)
+    interiorGroup.position.y = 10; // Adjusted to better match house height
+    interiorGroup.position.x = -5;
+    interiorGroup.position.z = 0;
+    
+    // Create 5 planes for the hollow cube (no bottom face for visibility)
+    
+    // Top face
+    const topGeometry = new THREE.BoxGeometry(interiorWidth, wallThickness, interiorDepth);
+    const topMesh = new THREE.Mesh(topGeometry, interiorMaterial.clone());
+    topMesh.position.y = interiorHeight/2;
+    topMesh.castShadow = true;
+    topMesh.receiveShadow = true;
+    // Adjust texture scale for top if texture exists
+    if (interiorTexture) {
+        topMesh.material.map = interiorTexture.clone();
+        topMesh.material.map.repeat.set(2, 2);
+    }
+    interiorGroup.add(topMesh);
+    
+    // Right face
+    const rightGeometry = new THREE.BoxGeometry(wallThickness, interiorHeight, interiorDepth);
+    const rightMesh = new THREE.Mesh(rightGeometry, interiorMaterial.clone());
+    rightMesh.position.x = interiorWidth/2;
+    rightMesh.castShadow = true;
+    rightMesh.receiveShadow = true;
+    // Adjust texture scale for right wall if texture exists
+    if (interiorTexture) {
+        rightMesh.material.map = interiorTexture.clone();
+        rightMesh.material.map.repeat.set(2, 1);
+    }
+    interiorGroup.add(rightMesh);
+    
+    // Left face
+    const leftGeometry = new THREE.BoxGeometry(wallThickness, interiorHeight, interiorDepth);
+    const leftMesh = new THREE.Mesh(leftGeometry, interiorMaterial.clone());
+    leftMesh.position.x = -interiorWidth/2;
+    leftMesh.castShadow = true;
+    leftMesh.receiveShadow = true;
+    // Adjust texture scale for left wall if texture exists
+    if (interiorTexture) {
+        leftMesh.material.map = interiorTexture.clone();
+        leftMesh.material.map.repeat.set(2, 1);
+    }
+    interiorGroup.add(leftMesh);
+    
+    // Front face
+    const frontGeometry = new THREE.BoxGeometry(interiorWidth, interiorHeight, wallThickness);
+    const frontMesh = new THREE.Mesh(frontGeometry, interiorMaterial.clone());
+    frontMesh.position.z = interiorDepth/2;
+    frontMesh.castShadow = true;
+    frontMesh.receiveShadow = true;
+    // Adjust texture scale for front wall if texture exists
+    if (interiorTexture) {
+        frontMesh.material.map = interiorTexture.clone();
+        frontMesh.material.map.repeat.set(2, 1);
+    }
+    interiorGroup.add(frontMesh);
+    
+    // Back face
+    const backGeometry = new THREE.BoxGeometry(interiorWidth, interiorHeight, wallThickness);
+    const backMesh = new THREE.Mesh(backGeometry, interiorMaterial.clone());
+    backMesh.position.z = -interiorDepth/2;
+    backMesh.castShadow = true;
+    backMesh.receiveShadow = true;
+    // Adjust texture scale for back wall if texture exists
+    if (interiorTexture) {
+        backMesh.material.map = interiorTexture.clone();
+        backMesh.material.map.repeat.set(2, 1);
+    }
+    interiorGroup.add(backMesh);
+    
+    // Add the interior structure to the house group
+    houseGroup.add(interiorGroup);
+    
+    // Log to verify position
+    console.log("House interior created with textured walls");
+    
+    // Update footprint for collision detection
+    houseFootprint = {
+        size: houseSize,
+        interiorSize: interiorWidth
+    };
+    
+    // Store house position for reference
+    housePosition = {
+        x: houseGroup.position.x,
+        y: houseGroup.position.y,
+        z: houseGroup.position.z
+    };
 }
