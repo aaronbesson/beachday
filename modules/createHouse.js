@@ -112,9 +112,9 @@ export function createHouse(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight) 
         const model = gltf.scene;
         model.scale.set(100, 100, 100);
         model.rotation.y = Math.PI * 0.5;
-        
+
         // Adjust model position relative to group
-        model.position.y = houseSize/2 - 22; // Reset to 0 since we're using terrain height
+        model.position.y = houseSize / 2 - 23; // Reset to 0 since we're using terrain height
 
         // Enable shadows for all meshes in the model
         model.traverse((node) => {
@@ -127,122 +127,6 @@ export function createHouse(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight) 
         // Create hollow interior cube for the house
         createHouseInterior(houseGroup, houseSize);
 
-        // Create wooden deck structure
-        const deckGroup = new THREE.Group();
-        
-        // Wood materials
-        const plankMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8b4513, // dark wood color for planks
-            roughness: 0.8,
-            metalness: 0.1
-        });
-        
-        const poleMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8b4513, // Darker wood color for supports
-            roughness: 0.9,
-            metalness: 0.1
-        });
-
-        // Create deck planks
-        const plankWidth = (houseSize * 1.5) / 15;
-        const plankGap = 0.5;
-        const plankHeight = 2;
-        const deckWidth = houseSize * 1.5;
-        const deckDepth = houseSize * 1.5;
-
-        for (let x = -deckWidth/2; x < deckWidth/2; x += plankWidth + plankGap) {
-            const plankGeometry = new THREE.BoxGeometry(
-                plankWidth - plankGap,
-                plankHeight,
-                deckDepth
-            );
-            const plank = new THREE.Mesh(plankGeometry, plankMaterial);
-            plank.position.set(x + plankWidth/2, -houseSize/2 - 10, 0);
-            plank.castShadow = true;
-            plank.receiveShadow = true;
-            deckGroup.add(plank);
-        }
-
-        // Add support poles
-        const poleRadius = 4;
-        const poleHeight = 60;
-        const polePositions = [
-            { x: -deckWidth/2 + poleRadius, z: -deckDepth/2 + poleRadius },
-            { x: -deckWidth/2 + poleRadius, z: deckDepth/2 - poleRadius },
-            { x: deckWidth/2 - poleRadius, z: -deckDepth/2 + poleRadius },
-            { x: deckWidth/2 - poleRadius, z: deckDepth/2 - poleRadius },
-            { x: 0, z: -deckDepth/2 + poleRadius },
-            { x: 0, z: deckDepth/2 - poleRadius },
-            { x: -deckWidth/4, z: 0 },
-            { x: deckWidth/4, z: 0 }
-        ];
-
-        polePositions.forEach(pos => {
-            const poleGeometry = new THREE.CylinderGeometry(
-                poleRadius,
-                poleRadius,
-                poleHeight,
-                8
-            );
-            const pole = new THREE.Mesh(poleGeometry, poleMaterial);
-            pole.position.set(
-                pos.x,
-                -houseSize/2 - 10 - poleHeight/2,
-                pos.z
-            );
-            pole.castShadow = true;
-            pole.receiveShadow = true;
-            deckGroup.add(pole);
-
-            // Add decorative cap
-            const capGeometry = new THREE.CylinderGeometry(
-                poleRadius + 1,
-                poleRadius + 1,
-                2,
-                8
-            );
-            const cap = new THREE.Mesh(capGeometry, poleMaterial);
-            cap.position.set(pos.x, -houseSize/2 - 9, pos.z);
-            cap.castShadow = true;
-            deckGroup.add(cap);
-        });
-
-        // Add cross-beams
-        const beamHeight = 4;
-        const beamWidth = 4;
-        const outerBeams = [
-            { start: [-deckWidth/2, -deckDepth/2], end: [deckWidth/2, -deckDepth/2] },
-            { start: [-deckWidth/2, deckDepth/2], end: [deckWidth/2, deckDepth/2] },
-            { start: [-deckWidth/2, -deckDepth/2], end: [-deckWidth/2, deckDepth/2] },
-            { start: [deckWidth/2, -deckDepth/2], end: [deckWidth/2, deckDepth/2] }
-        ];
-
-        outerBeams.forEach(beam => {
-            const length = Math.sqrt(
-                Math.pow(beam.end[0] - beam.start[0], 2) +
-                Math.pow(beam.end[1] - beam.start[1], 2)
-            );
-            const beamGeometry = new THREE.BoxGeometry(length, beamHeight, beamWidth);
-            const beamMesh = new THREE.Mesh(beamGeometry, poleMaterial);
-            
-            beamMesh.position.set(
-                (beam.start[0] + beam.end[0])/2,
-                -houseSize/2 - 25,
-                (beam.start[1] + beam.end[1])/2
-            );
-
-            if (beam.start[1] === beam.end[1]) {
-                // No rotation needed for X-axis beams
-            } else {
-                beamMesh.rotation.y = Math.PI/2;
-            }
-
-            beamMesh.castShadow = true;
-            beamMesh.receiveShadow = true;
-            deckGroup.add(beamMesh);
-        });
-
-        houseGroup.add(deckGroup);
         houseGroup.add(model);
         console.log("House model loaded at position:", houseGroup.position);
     });
@@ -280,28 +164,28 @@ function createHouseInterior(houseGroup, houseSize) {
     const interiorHeight = houseSize * 0.25;
     const interiorDepth = houseSize * 0.25;
     const wallThickness = 3;
-    
+
     // Load cabin interior texture with proper error handling
     const textureLoader = new THREE.TextureLoader();
     let interiorTexture;
-    
+
     try {
         interiorTexture = textureLoader.load(
             './assets/texture/cabin-interior.jpg',
             // Success callback
-            function(texture) {
+            function (texture) {
                 console.log("House interior texture loaded successfully");
             },
             // Progress callback
             undefined,
             // Error callback
-            function(err) {
+            function (err) {
                 console.error("Error loading house interior texture:", err);
                 // Fallback to a plain brown color if texture fails to load
                 updateInteriorMaterials(0x3F1800); // dark chocolate color
             }
         );
-        
+
         // Set texture properties for proper tiling
         interiorTexture.wrapS = THREE.RepeatWrapping;
         interiorTexture.wrapT = THREE.RepeatWrapping;
@@ -310,7 +194,7 @@ function createHouseInterior(houseGroup, houseSize) {
         console.error("Error setting up house interior texture:", error);
         interiorTexture = null;
     }
-    
+
     // Material for interior walls with texture or fallback color
     const interiorMaterial = new THREE.MeshStandardMaterial({
         map: interiorTexture,
@@ -319,7 +203,7 @@ function createHouseInterior(houseGroup, houseSize) {
         metalness: 0.1,
         side: THREE.DoubleSide // Render both sides so we can see interior from outside
     });
-    
+
     // Function to update materials if texture fails to load
     function updateInteriorMaterials(color) {
         interiorGroup.traverse((child) => {
@@ -330,21 +214,21 @@ function createHouseInterior(houseGroup, houseSize) {
             }
         });
     }
-    
+
     // Create a group for the interior
     const interiorGroup = new THREE.Group();
-    
+
     // Position the interior relative to house center (accounting for house model positioning)
     interiorGroup.position.y = 10; // Adjusted to better match house height
     interiorGroup.position.x = -5;
     interiorGroup.position.z = 0;
-    
+
     // Create 5 planes for the hollow cube (no bottom face for visibility)
-    
+
     // Top face
     const topGeometry = new THREE.BoxGeometry(interiorWidth, wallThickness, interiorDepth);
     const topMesh = new THREE.Mesh(topGeometry, interiorMaterial.clone());
-    topMesh.position.y = interiorHeight/2;
+    topMesh.position.y = interiorHeight / 2;
     topMesh.castShadow = true;
     topMesh.receiveShadow = true;
     // Adjust texture scale for top if texture exists
@@ -353,11 +237,11 @@ function createHouseInterior(houseGroup, houseSize) {
         topMesh.material.map.repeat.set(2, 2);
     }
     interiorGroup.add(topMesh);
-    
+
     // Right face
     const rightGeometry = new THREE.BoxGeometry(wallThickness, interiorHeight, interiorDepth);
     const rightMesh = new THREE.Mesh(rightGeometry, interiorMaterial.clone());
-    rightMesh.position.x = interiorWidth/2;
+    rightMesh.position.x = interiorWidth / 2;
     rightMesh.castShadow = true;
     rightMesh.receiveShadow = true;
     // Adjust texture scale for right wall if texture exists
@@ -366,11 +250,11 @@ function createHouseInterior(houseGroup, houseSize) {
         rightMesh.material.map.repeat.set(2, 1);
     }
     interiorGroup.add(rightMesh);
-    
+
     // Left face
     const leftGeometry = new THREE.BoxGeometry(wallThickness, interiorHeight, interiorDepth);
     const leftMesh = new THREE.Mesh(leftGeometry, interiorMaterial.clone());
-    leftMesh.position.x = -interiorWidth/2;
+    leftMesh.position.x = -interiorWidth / 2;
     leftMesh.castShadow = true;
     leftMesh.receiveShadow = true;
     // Adjust texture scale for left wall if texture exists
@@ -379,11 +263,11 @@ function createHouseInterior(houseGroup, houseSize) {
         leftMesh.material.map.repeat.set(2, 1);
     }
     interiorGroup.add(leftMesh);
-    
+
     // Front face
     const frontGeometry = new THREE.BoxGeometry(interiorWidth, interiorHeight, wallThickness);
     const frontMesh = new THREE.Mesh(frontGeometry, interiorMaterial.clone());
-    frontMesh.position.z = interiorDepth/2;
+    frontMesh.position.z = interiorDepth / 2;
     frontMesh.castShadow = true;
     frontMesh.receiveShadow = true;
     // Adjust texture scale for front wall if texture exists
@@ -392,11 +276,11 @@ function createHouseInterior(houseGroup, houseSize) {
         frontMesh.material.map.repeat.set(2, 1);
     }
     interiorGroup.add(frontMesh);
-    
+
     // Back face
     const backGeometry = new THREE.BoxGeometry(interiorWidth, interiorHeight, wallThickness);
     const backMesh = new THREE.Mesh(backGeometry, interiorMaterial.clone());
-    backMesh.position.z = -interiorDepth/2;
+    backMesh.position.z = -interiorDepth / 2;
     backMesh.castShadow = true;
     backMesh.receiveShadow = true;
     // Adjust texture scale for back wall if texture exists
@@ -405,19 +289,19 @@ function createHouseInterior(houseGroup, houseSize) {
         backMesh.material.map.repeat.set(2, 1);
     }
     interiorGroup.add(backMesh);
-    
+
     // Add the interior structure to the house group
     houseGroup.add(interiorGroup);
-    
+
     // Log to verify position
     console.log("House interior created with textured walls");
-    
+
     // Update footprint for collision detection
     houseFootprint = {
         size: houseSize,
         interiorSize: interiorWidth
     };
-    
+
     // Store house position for reference
     housePosition = {
         x: houseGroup.position.x,
