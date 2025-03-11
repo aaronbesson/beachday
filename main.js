@@ -391,7 +391,7 @@ function updatePlayerShadow() {
 
 function setupEventListeners() {
     document.addEventListener('keydown', function(event) {
-        console.log("Key pressed:", event.code);
+        // console.log("Key pressed:", event.code);
         switch (event.code) {
             case 'KeyW':
             case 'ArrowUp':

@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Export the main function to create sharks
 export function createSharks(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight, SHARK_COUNT) {
-    console.log(`Creating ${SHARK_COUNT} sharks with terrain size ${TERRAIN_SIZE}`);
+    // console.log(`Creating ${SHARK_COUNT} sharks with terrain size ${TERRAIN_SIZE}`);
     
     const sharks = new THREE.Group();
     
@@ -58,14 +58,14 @@ export function createSharks(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight,
         
         // If still no water, place in a known deep water location
         if (terrainHeight > WATER_LEVEL - 4) {
-            console.log("Could not find water at edge, placing shark in deep water area");
+            // console.log("Could not find water at edge, placing shark in deep water area");
             // Try a position closer to center but still in that quadrant
             x = (corner === 0 || corner === 3) ? TERRAIN_SIZE * 0.25 : -TERRAIN_SIZE * 0.25;
             z = (corner === 0 || corner === 1) ? TERRAIN_SIZE * 0.25 : -TERRAIN_SIZE * 0.25;
         }
         
         // Now create the shark at this position
-        console.log(`Shark ${i} placed at position: ${x}, ${z}`);
+        // console.log(`Shark ${i} placed at position: ${x}, ${z}`);
         
         // Set position below water surface
         const position = new THREE.Vector3(x, WATER_LEVEL - 3 - Math.random() * 6, z);
@@ -194,7 +194,7 @@ export function updateSharks(sharks, time, delta, TERRAIN_SIZE, WATER_LEVEL, get
         
         // Immediate teleport if shark is at spawn and has been there before
         if (distFromSpawn < 100 && shark.userData.visitedSpawn) {
-            console.log("Emergency teleport from spawn area!");
+            // console.log("Emergency teleport from spawn area!");
             // Force teleport to a distant location
             const angle = Math.random() * Math.PI * 2;
             const distance = TERRAIN_SIZE * 0.4;
@@ -282,7 +282,7 @@ export function updateSharks(sharks, time, delta, TERRAIN_SIZE, WATER_LEVEL, get
                 
                 // Reset stuck counter
                 shark.userData.stuckTime = 0;
-                console.log("Teleported shark to extreme location", newX, newZ);
+                // console.log("Teleported shark to extreme location", newX, newZ);
             }
         }
     });

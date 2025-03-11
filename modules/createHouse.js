@@ -128,7 +128,7 @@ export function createHouse(scene, TERRAIN_SIZE, WATER_LEVEL, getTerrainHeight) 
         createHouseInterior(houseGroup, houseSize);
 
         houseGroup.add(model);
-        console.log("House model loaded at position:", houseGroup.position);
+        // console.log("House model loaded at position:", houseGroup.position);
     });
 
     house.add(houseGroup);
@@ -174,7 +174,7 @@ function createHouseInterior(houseGroup, houseSize) {
             './assets/texture/cabin-interior.jpg',
             // Success callback
             function (texture) {
-                console.log("House interior texture loaded successfully");
+                // console.log("House interior texture loaded successfully");
             },
             // Progress callback
             undefined,
@@ -294,7 +294,7 @@ function createHouseInterior(houseGroup, houseSize) {
     houseGroup.add(interiorGroup);
 
     // Log to verify position
-    console.log("House interior created with textured walls");
+    // console.log("House interior created with textured walls");
 
     // Update footprint for collision detection
     houseFootprint = {

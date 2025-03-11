@@ -69,7 +69,7 @@ export async function createLevelBoss(scene, TERRAIN_SIZE, WATER_LEVEL, getTerra
     // Initialize sound
     initBossSound(bossData);
     
-    console.log(`Created boss: ${bossData.name}`);
+    // console.log(`Created boss: ${bossData.name}`);
     return bossGroup;
 }
 
@@ -176,7 +176,7 @@ function loadBossModel(bossInstance, modelPath, tempBoss) {
                 }
             });
             
-            console.log(`Boss model loaded at position:`, bossInstance.position);
+            // console.log(`Boss model loaded at position:`, bossInstance.position);
             resolve();
         });
     });
@@ -187,12 +187,12 @@ function initBossSound(bossData) {
     // Use the sound property from the boss data if available
     if (!bossSound && bossData && bossData.sound) {
         const soundPath = `/assets/soundfx/${bossData.sound}`;
-        console.log(`Loading boss sound: ${soundPath}`);
+        // console.log(`Loading boss sound: ${soundPath}`);
         bossSound = new Audio(soundPath);
         bossSound.volume = 0.5;
     } else if (!bossSound) {
         // Fallback to wolf sound if no specific sound is defined
-        console.log('Using default wolf sound');
+        // console.log('Using default wolf sound');
         bossSound = new Audio('/assets/soundfx/wolf.mp3');
         bossSound.volume = 0.5;
     }
@@ -219,7 +219,7 @@ function wouldCollideWithHouse(newX, newZ) {
     if (collision) {
         // Log collision but not too frequently
         if (Math.random() < 0.05) {
-            console.log(`Boss collision with house detected! Distance: ${distance.toFixed(2)}, Threshold: ${collisionDistance.toFixed(2)}`);
+            // console.log(`Boss collision with house detected! Distance: ${distance.toFixed(2)}, Threshold: ${collisionDistance.toFixed(2)}`);
         }
     }
     
@@ -267,7 +267,7 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
             chaseDelayTimer = setTimeout(() => {
                 isChasing = true;
                 chaseStartTime = Date.now();
-                console.log(`${bossType} CHASE STARTED!`);
+                // console.log(`${bossType} CHASE STARTED!`);
                 chaseDelayTimer = null;
             }, CHASE_DELAY);
         } else if (!playerNearBoss && chaseDelayTimer) {
@@ -279,7 +279,7 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
         // Check if chase should end
         if (isChasing && Date.now() - chaseStartTime > CHASE_DURATION) {
             isChasing = false;
-            console.log(`${bossType} CHASE ENDED!`);
+            // console.log(`${bossType} CHASE ENDED!`);
         }
 
         // Visual and sound alerts
@@ -297,7 +297,7 @@ export function updateLevelBoss(bossGroup, time, delta, TERRAIN_SIZE, WATER_LEVE
                     bossSound.play().catch(e => console.log(`Error playing ${bossType} sound:`, e));
                     lastSoundTime = currentTime;
                 }
-                console.log(`${bossType} PROXIMITY ALERT! Distance:`, closestDistance);
+                // console.log(`${bossType} PROXIMITY ALERT! Distance:`, closestDistance);
             }
         } else if (bossAlert) {
             bossAlert.style.display = 'none';
