@@ -360,8 +360,11 @@ class PlayerCustomizer {
             
             // Copy position, rotation, scale from original model
             // Note: You may need to adjust these values based on the new model
-            this.player.model.scale.set(3, 3, 3);
+            this.player.model.scale.set(8, 8, 8);
             this.player.model.position.set(0, 50, -10);
+            
+            // Set flag to indicate a custom model is being used
+            this.player.usingCustomModel = true;
             
             console.log('Player model replaced successfully');
         });

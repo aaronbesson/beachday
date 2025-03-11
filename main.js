@@ -44,7 +44,8 @@ let player = {
     modelBaseHeight: 1.5,
     shadow: null,
     flyingModel: null,
-    regularModel: null
+    regularModel: null,
+    usingCustomModel: false
 };
 
 // Movement control state
@@ -311,6 +312,12 @@ function preloadSquirrelModels() {
 
 // Function to swap between regular and flying squirrel models
 function swapSquirrelModel(isFlying) {
+    // Skip model swapping if using custom model
+    if (player.usingCustomModel) {
+        console.log("Using custom model, skipping model swap");
+        return;
+    }
+
     if (!player.flyingModel || !player.regularModel) {
         console.log("Models not yet loaded, can't swap");
         return;
